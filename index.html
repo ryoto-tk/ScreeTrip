@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#0A0A0F"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>TravelMind</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+<style>
+/* ── RESET & TOKENS ── */
+:root{
+  --bg:#0A0A0F; --bg1:#0D0D16; --bg2:#111118; --bg3:#18181F;
+  --bdr:rgba(255,255,255,0.08); --bdr2:rgba(255,255,255,0.14);
+  --acc:#5B8EFF; --acc2:#A78BFA;
+  --red:#FF4D6A; --grn:#00D68F; --ylw:#FFB547;
+  --t1:rgba(240,240,250,1); --t2:rgba(240,240,250,0.55); --t3:rgba(240,240,250,0.28);
+  --font:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:var(--font);color:var(--t1);-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+button{cursor:pointer;border:none;background:none;font-family:var(--font);color:inherit;outline:none;}
+input{font-family:var(--font);outline:none;}
+a{color:inherit;text-decoration:none;}
+::-webkit-scrollbar{display:none;}
+*{scrollbar-width:none;}
+
+/* ── SHELL ── */
+#shell{
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 25% 15%,#1a1030 0%,#0A0A0F 60%);
+  padding:16px;
+}
+#phone{
+  width:375px;max-height:812px;height:min(812px,calc(100vh - 32px));
+  background:var(--bg1);border-radius:48px;overflow:hidden;
+  display:flex;flex-direction:column;position:relative;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.07),0 40px 80px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.05);
+}
+@media(max-width:440px){
+  #shell{padding:0;}
+  #phone{width:100%;height:100%;border-radius:0;max-height:100%;box-shadow:none;}
+}
+#di{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:120px;height:34px;background:#000;border-radius:20px;z-index:300;pointer-events:none;}
+
+/* ── STATUS BAR ── */
+#sb{
+  height:50px;padding:14px 22px 0;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  position:relative;z-index:200;
+}
+.sb-t{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:-0.3px;}
+.sb-r{display:flex;align-items:center;gap:5px;}
+.sig{display:flex;align-items:flex-end;gap:2px;height:12px;}
+.sig span{width:3px;border-radius:1px;background:var(--t1);}
+.bat{display:flex;align-items:center;gap:2px;}
+.bat-body{width:22px;height:11px;border:1px solid rgba(255,255,255,0.38);border-radius:3px;padding:1.5px;}
+.bat-fill{width:72%;height:100%;background:var(--grn);border-radius:1px;}
+.bat-tip{width:2px;height:5px;background:rgba(255,255,255,0.38);border-radius:0 1px 1px 0;}
+
+/* ── PAGE SYSTEM ── */
+/* Each page fills the screen-area completely. Only one is visible at a time. */
+#pages{flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;}
+.page{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  background:var(--bg1);
+  /* hidden by default */
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateX(100%);
+  transition:transform 0.3s cubic-bezier(0.4,0,0.2,1),
+             visibility 0s 0.3s,
+             opacity 0.3s;
+  opacity:0;
+}
+.page.active{
+  visibility:visible;
+  pointer-events:all;
+  transform:translateX(0);
+  transition:transform 0.3s cubic-bezier(0.4,0,0.2,1),
+             visibility 0s 0s,
+             opacity 0.3s;
+  opacity:1;
+}
+.page.slide-left{transform:translateX(-30%);}
+/* scroll wrapper used inside each page */
+.pscroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+
+/* ── TAB BAR ── */
+#tabbar{
+  height:78px;padding:8px 4px 18px;flex-shrink:0;
+  display:flex;align-items:flex-start;justify-content:space-around;
+  border-top:0.5px solid var(--bdr);
+  background:rgba(10,10,16,0.94);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+}
+.tb{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:5px 14px;border-radius:14px;
+  background:none;border:none;cursor:pointer;position:relative;
+  transition:background 0.2s;
+}
+.tb.on{background:rgba(91,142,255,0.13);}
+.tb-lbl{font-size:10px;font-weight:400;color:var(--t3);transition:color 0.2s;}
+.tb.on .tb-lbl{color:var(--acc);font-weight:500;}
+.notif-badge{
+  position:absolute;top:2px;right:8px;
+  width:7px;height:7px;border-radius:50%;
+  background:var(--red);border:1.5px solid var(--bg1);
+}
+
+/* ── COMMON UI ── */
+.ph{padding:10px 20px 14px;flex-shrink:0;}
+.ph-title{font-size:20px;font-weight:600;letter-spacing:-0.5px;}
+.ph-sub{font-size:12px;color:var(--t2);margin-top:2px;}
+.card{background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:14px;}
+.card2{background:var(--bg3);border:1px solid var(--bdr);border-radius:14px;padding:14px;}
+.sec-lbl{font-size:11px;font-weight:600;color:var(--t3);letter-spacing:0.7px;text-transform:uppercase;margin-bottom:8px;}
+.row{display:flex;align-items:center;}
+.f1{flex:1;min-width:0;}
+.trunc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gap8{gap:8px;} .gap10{gap:10px;} .gap12{gap:12px;}
+.btn-primary{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:14px;border-radius:14px;
+  font-size:14px;font-weight:600;color:#fff;cursor:pointer;
+  font-family:var(--font);border:none;
+  transition:transform 0.12s,opacity 0.12s;
+}
+.btn-primary:active{transform:scale(0.97);opacity:0.85;}
+.btn-sec{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:14px;border-radius:14px;
+  font-size:14px;font-weight:500;color:var(--t2);cursor:pointer;
+  font-family:var(--font);border:1px solid var(--bdr);background:var(--bg2);
+  transition:transform 0.12s;
+}
+.btn-sec:active{transform:scale(0.97);}
+.divider{height:1px;background:var(--bdr);margin:12px 0;}
+.prog-track{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:3px;transition:width 0.35s ease;}
+
+/* ── LOGIN PAGE ── */
+#pg-login{background:var(--bg1);}
+.login-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 32px;}
+.login-logo{font-size:48px;margin-bottom:20px;}
+.login-title{font-size:28px;font-weight:600;letter-spacing:-1px;text-align:center;margin-bottom:8px;}
+.login-sub{font-size:14px;color:var(--t2);text-align:center;line-height:1.6;margin-bottom:48px;}
+.google-btn{
+  width:100%;padding:14px 20px;border-radius:16px;
+  background:#fff;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  font-family:var(--font);font-size:15px;font-weight:600;color:#1a1a1a;
+  transition:transform 0.12s,box-shadow 0.12s;
+  box-shadow:0 2px 12px rgba(0,0,0,0.4);
+}
+.google-btn:active{transform:scale(0.97);}
+.demo-btn{
+  margin-top:16px;width:100%;padding:12px;border-radius:14px;
+  border:1px solid var(--bdr2);background:transparent;
+  font-family:var(--font);font-size:14px;color:var(--t2);cursor:pointer;
+}
+.login-note{margin-top:24px;font-size:11px;color:var(--t3);text-align:center;line-height:1.6;}
+
+/* ── SCHEDULE PAGE ── */
+#pg-schedule{}
+.sch-header{padding:10px 16px 12px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
+.user-chip{display:flex;align-items:center;gap:8px;}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;}
+.user-name{font-size:13px;font-weight:500;color:var(--t2);}
+.add-btn{
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(91,142,255,0.15);border:1px solid rgba(91,142,255,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:var(--acc);flex-shrink:0;cursor:pointer;
+}
+.res-card{
+  width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;
+  padding:13px 14px;display:flex;align-items:center;gap:12px;
+  text-align:left;cursor:pointer;position:relative;overflow:hidden;
+  transition:border-color 0.2s;margin-bottom:8px;
+}
+.res-card:active{transform:scale(0.98);}
+.res-card.urgent{border-color:rgba(255,77,106,0.35);}
+.res-top-strip{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--red),transparent);}
+.res-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.res-title{font-size:14px;font-weight:600;}
+.res-sub{font-size:12px;color:var(--t2);margin-top:2px;}
+.res-time{font-size:16px;font-weight:600;font-family:var(--mono);text-align:right;}
+.res-cd{font-size:11px;font-weight:500;text-align:right;margin-top:2px;}
+.res-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:10px;color:var(--t3);}
+.empty-ico{font-size:36px;}
+.empty-txt{font-size:14px;}
+.empty-hint{font-size:12px;text-align:center;color:var(--t3);line-height:1.5;}
+
+/* ── OCR / ANALYZE PAGE ── */
+#pg-ocr{}
+.ocr-dropzone{
+  margin:0 16px;border-radius:16px;border:1.5px dashed var(--bdr2);
+  background:var(--bg2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:32px 20px;cursor:pointer;flex-shrink:0;
+  transition:border-color 0.2s,background 0.2s;
+}
+.ocr-dropzone.drag{border-color:var(--acc);background:rgba(91,142,255,0.06);}
+.ocr-ico{font-size:36px;}
+.ocr-label{font-size:14px;font-weight:500;color:var(--t2);}
+.ocr-hint{font-size:12px;color:var(--t3);text-align:center;line-height:1.5;}
+#ocr-file{display:none;}
+.ocr-preview-wrap{margin:12px 16px 0;border-radius:14px;overflow:hidden;border:1px solid var(--bdr);flex-shrink:0;max-height:160px;position:relative;}
+#ocr-img-preview{width:100%;height:160px;object-fit:cover;display:block;}
+.ocr-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(10,10,16,0.9),transparent 60%);display:flex;align-items:flex-end;padding:12px;}
+.ocr-status{font-size:12px;font-weight:500;}
+.ocr-result-card{margin:12px 16px 0;border-radius:14px;background:var(--bg2);border:1px solid var(--bdr);overflow:hidden;flex-shrink:0;}
+.ocr-result-title{padding:12px 14px;font-size:12px;font-weight:600;color:var(--t3);letter-spacing:0.5px;border-bottom:1px solid var(--bdr);}
+.ocr-field{padding:10px 14px;border-bottom:1px solid var(--bdr);}
+.ocr-field:last-child{border-bottom:none;}
+.ocr-field-lbl{font-size:10px;color:var(--t3);margin-bottom:3px;}
+.ocr-field-val{font-size:14px;font-weight:500;}
+.ocr-field-val.editable{border-bottom:1px solid var(--bdr2);width:100%;background:none;color:var(--t1);font-size:14px;font-weight:500;padding-bottom:2px;}
+.ocr-actions{padding:12px 16px;display:flex;gap:8px;flex-shrink:0;}
+/* parsing animation */
+@keyframes scan{0%{top:0;}100%{top:100%;}}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--acc),transparent);animation:scan 1.5s linear infinite;pointer-events:none;}
+
+/* ── DETAIL PAGE ── */
+#pg-detail{}
+.detail-hero-wrap{margin:0 16px 12px;border-radius:18px;padding:20px;position:relative;overflow:hidden;flex-shrink:0;}
+.detail-bg-emoji{position:absolute;top:-20px;right:-20px;font-size:90px;opacity:0.07;pointer-events:none;line-height:1;}
+.detail-emoji{font-size:34px;margin-bottom:8px;}
+.detail-name{font-size:22px;font-weight:700;letter-spacing:-0.5px;margin-bottom:4px;}
+.detail-sub{font-size:13px;color:var(--t2);margin-bottom:14px;}
+.detail-chips{display:flex;gap:10px;flex-wrap:wrap;}
+.chip{background:rgba(255,255,255,0.08);border-radius:8px;padding:5px 10px;}
+.chip-lbl{font-size:10px;color:var(--t3);margin-bottom:1px;}
+.chip-val{font-size:13px;font-weight:600;font-family:var(--mono);}
+.addr-copy-btn{
+  width:100%;padding:11px 14px;border-radius:12px;
+  background:rgba(255,255,255,0.04);border:1px solid var(--bdr);
+  display:flex;align-items:center;gap:10px;cursor:pointer;
+  transition:background 0.2s;
+}
+.addr-copy-btn:active{background:rgba(255,255,255,0.08);}
+#visa-banner a:hover{opacity:0.85;}
+#visa-banner{transition:opacity 0.3s;}
+.nav-btns{display:flex;gap:8px;margin-bottom:12px;}
+.nav-btn{
+  flex:1;padding:14px 10px;border-radius:14px;
+  font-family:var(--font);font-size:13px;font-weight:600;
+  cursor:pointer;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;
+  transition:transform 0.12s;
+}
+.nav-btn:active{transform:scale(0.96);}
+
+/* ── CHECKLIST PAGE (standalone) ── */
+#pg-checklist{}
+.cl-tab-row{padding:0 16px 10px;flex-shrink:0;overflow-x:auto;}
+.cl-tab-inner{display:flex;gap:8px;padding-bottom:2px;}
+.cl-tab{
+  flex-shrink:0;padding:7px 12px;border-radius:10px;
+  font-size:12px;font-weight:400;
+  border:1px solid var(--bdr);background:var(--bg2);color:var(--t2);
+  cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:5px;
+  transition:all 0.15s;
+}
+.cl-tab.on{border-color:rgba(91,142,255,0.5);background:rgba(91,142,255,0.15);color:var(--acc);font-weight:500;}
+.cl-prog-area{padding:0 16px 12px;flex-shrink:0;}
+.check-item{
+  width:100%;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px;
+  padding:12px 14px;display:flex;align-items:center;gap:12px;
+  text-align:left;cursor:pointer;margin-bottom:6px;
+  transition:background 0.18s,border-color 0.18s;font-family:var(--font);
+}
+.check-item.done{background:rgba(0,214,143,0.06);border-color:rgba(0,214,143,0.2);}
+.check-item:active{transform:scale(0.98);}
+.ck-circle{
+  width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:background 0.18s,border-color 0.18s;
+}
+.ck-circle.done{background:var(--grn);border-color:var(--grn);}
+.ck-circle.crit{border-color:var(--red);}
+.ck-lbl{font-size:13px;font-weight:500;transition:color 0.18s;}
+.ck-lbl.done{color:var(--t2);text-decoration:line-through;}
+.ck-note{font-size:11px;color:var(--t3);margin-top:1px;}
+.prio-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:6px;flex-shrink:0;}
+.prio-badge.critical{color:var(--red);background:rgba(255,77,106,0.1);}
+.prio-badge.high{color:var(--ylw);background:rgba(255,181,71,0.1);}
+.prio-badge.medium{color:var(--acc);background:rgba(91,142,255,0.1);}
+.group-hdr{display:flex;align-items:center;gap:6px;margin:8px 0 6px;}
+.group-line{height:1px;flex:1;background:var(--bdr);}
+
+/* ── NOTIFICATION PAGE ── */
+#pg-notifs{}
+.notif-card-item{
+  border-radius:14px;padding:13px 14px;margin-bottom:8px;cursor:pointer;position:relative;
+}
+.notif-read-dot{position:absolute;top:14px;right:14px;width:7px;height:7px;border-radius:50%;}
+.toggle-track{width:42px;height:24px;border-radius:12px;flex-shrink:0;position:relative;cursor:pointer;transition:background 0.18s;}
+.toggle-thumb{position:absolute;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left 0.18s cubic-bezier(0.4,0,0.2,1);}
+
+/* ── URGENT ALARM OVERLAY ── */
+#alarm-overlay{
+  position:absolute;inset:0;z-index:1000;
+  background:rgba(255,20,50,0.97);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:32px;
+}
+#alarm-overlay.on{display:flex;}
+.alarm-icon{font-size:56px;margin-bottom:16px;animation:alarm-bounce 0.5s ease infinite alternate;}
+@keyframes alarm-bounce{from{transform:scale(1);}to{transform:scale(1.12);}}
+.alarm-title{font-size:22px;font-weight:700;text-align:center;margin-bottom:8px;}
+.alarm-body{font-size:14px;color:rgba(255,255,255,0.85);text-align:center;line-height:1.6;margin-bottom:32px;}
+.alarm-dismiss{
+  padding:14px 32px;border-radius:16px;background:#fff;color:#CC0020;
+  font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer;border:none;
+}
+.alarm-dismiss:active{transform:scale(0.97);}
+.alarm-note{margin-top:16px;font-size:11px;color:rgba(255,255,255,0.55);text-align:center;}
+
+/* ── COPY TOAST ── */
+#toast{
+  position:absolute;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:rgba(255,255,255,0.12);backdrop-filter:blur(16px);
+  color:var(--t1);font-size:12px;font-weight:500;
+  padding:8px 16px;border-radius:20px;white-space:nowrap;
+  opacity:0;transition:opacity 0.2s,transform 0.2s;pointer-events:none;z-index:500;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── ANIMATIONS ── */
+@keyframes fadein{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.fi{animation:fadein 0.3s ease both;}
+.fi1{animation-delay:0.05s;} .fi2{animation-delay:0.1s;} .fi3{animation-delay:0.15s;}
+.fi4{animation-delay:0.2s;} .fi5{animation-delay:0.25s;}
+@keyframes pulse-ring{0%{transform:scale(1);opacity:0.5;}100%{transform:scale(2.2);opacity:0;}}
+@keyframes dash-anim{to{stroke-dashoffset:-18;}}
+</style>
+</head>
+<body>
+
+<div id="shell">
+<div id="phone">
+  <div id="di"></div>
+
+  <!-- STATUS BAR -->
+  <div id="sb">
+    <span class="sb-t" id="sb-clock">--:--</span>
+    <div class="sb-r">
+      <div class="sig">
+        <span style="height:4px"></span><span style="height:7px"></span>
+        <span style="height:10px"></span><span style="height:12px;opacity:0.3"></span>
+      </div>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+        <path d="M8 9.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3z" fill="var(--t1)"/>
+        <path d="M1.5 5.5C3.5 3.5 5.6 2.5 8 2.5s4.5 1 6.5 3" stroke="var(--t1)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        <path d="M4 8C5.2 6.8 6.5 6 8 6s2.8.8 4 2" stroke="var(--t1)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+      </svg>
+      <div class="bat"><div class="bat-body"><div class="bat-fill"></div></div><div class="bat-tip"></div></div>
+    </div>
+  </div>
+
+  <!-- PAGES -->
+  <div id="pages">
+
+    <!-- ══ LOGIN ══ -->
+    <div class="page active" id="pg-login">
+      <div class="login-wrap">
+        <div class="login-logo">✈️</div>
+        <div class="login-title">TravelMind</div>
+        <div class="login-sub">スクリーンショットから予約情報を自動読み取り。出発時刻を絶対に逃しません。</div>
+        <button class="google-btn" onclick="doGoogleLogin()">
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.1l6.7-6.7C35.7 2.3 30.2 0 24 0 14.8 0 7 5.4 3.2 13.3l7.8 6c1.8-5.4 6.9-9.8 13-9.8z"/>
+            <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.4c-.5 2.8-2.2 5.1-4.6 6.7l7.2 5.6c4.2-3.9 6.7-9.6 7.1-16.3z"/>
+            <path fill="#FBBC05" d="M11 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.8-6C1.2 16.5 0 20.1 0 24s1.2 7.5 3.2 10.6l7.8-6z"/>
+            <path fill="#34A853" d="M24 48c6.2 0 11.5-2 15.3-5.5l-7.2-5.6c-2 1.4-4.6 2.1-8.1 2.1-6.1 0-11.2-4.1-13-9.8l-7.8 6C7 42.6 14.8 48 24 48z"/>
+          </svg>
+          Googleでログイン
+        </button>
+        <button class="demo-btn" onclick="doDemo()">デモモードで試す</button>
+        <div class="login-note">Googleアカウントで認証することで、<br>予約データをクラウドに安全に保存します。</div>
+      </div>
+    </div>
+
+    <!-- ══ SCHEDULE (home) ══ -->
+    <div class="page" id="pg-schedule">
+      <div class="sch-header">
+        <div class="user-chip">
+          <div class="avatar" id="sch-avatar">田</div>
+          <div>
+            <div id="sch-username" style="font-size:13px;font-weight:500;color:var(--t2);">ゲスト</div>
+            <div style="font-size:11px;color:var(--t3);" id="sch-date">--月--日</div>
+          </div>
+        </div>
+        <button class="add-btn" onclick="showPage('pg-ocr')" title="スクリーンショットを解析">+</button>
+      </div>
+
+      <!-- Urgent banner -->
+      <div id="sch-urgent-banner" style="display:none;margin:0 16px 10px;padding:12px 14px;background:rgba(255,77,106,0.12);border:1px solid rgba(255,77,106,0.35);border-radius:14px;">
+        <div class="row gap10">
+          <span style="font-size:20px;flex-shrink:0;">🚨</span>
+          <div class="f1">
+            <div style="font-size:13px;font-weight:600;color:var(--red);" id="sch-urgent-title">出発限界時刻が近づいています</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:2px;" id="sch-urgent-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VISA / FERRY BANNER -->
+      <div id="visa-banner" style="display:none;margin:0 16px 10px;padding:13px 14px;border-radius:14px;border:1px solid;position:relative;">
+        <button onclick="dismissVisaBanner()" style="position:absolute;top:10px;right:12px;font-size:16px;color:rgba(255,255,255,0.4);padding:2px 4px;line-height:1;">✕</button>
+        <div style="font-size:14px;font-weight:700;margin-bottom:4px;" id="visa-banner-title"></div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:2px;padding-right:20px;" id="visa-banner-body"></div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:8px;" id="visa-banner-note"></div>
+        <a id="visa-banner-link" href="#" target="_blank" rel="noopener"
+          style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:9px;background:rgba(255,255,255,0.1);font-size:12px;font-weight:600;color:var(--t1);text-decoration:none;">
+        </a>
+      </div>
+
+      <!-- Countdown card -->
+      <div id="sch-countdown-card" style="margin:0 16px 14px;padding:13px 16px;border-radius:14px;border:1px solid rgba(91,142,255,0.22);background:rgba(91,142,255,0.07);">
+        <div class="row" style="gap:12px;">
+          <div style="font-size:24px;" id="sch-cd-emoji">✈️</div>
+          <div class="f1">
+            <div style="font-size:11px;color:var(--t2);">次の出発まで</div>
+            <div id="sch-cd-val" style="font-size:22px;font-weight:600;font-family:var(--mono);color:var(--acc);letter-spacing:-0.5px;">--:--</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:var(--t2);">出発目安</div>
+            <div id="sch-depart" style="font-size:14px;font-weight:600;color:var(--t1);">--:--</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pscroll" style="padding:0 16px 16px;">
+        <div class="sec-lbl">本日の予約</div>
+        <div id="sch-list"></div>
+        <div id="sch-empty" class="empty-state" style="display:none;">
+          <div class="empty-ico">📋</div>
+          <div class="empty-txt">予約がありません</div>
+          <div class="empty-hint">右上の + ボタンからスクリーンショットを<br>読み込んで予約を追加してください</div>
+        </div>
+        <div style="margin-top:8px;padding:10px 12px;background:rgba(0,214,143,0.06);border:1px solid rgba(0,214,143,0.14);border-radius:12px;">
+          <div class="row gap8">
+            <span style="font-size:14px;">🔍</span>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--grn);">Screen Intelligence 稼働中</div>
+              <div style="font-size:10px;color:var(--t3);margin-top:1px;">スクリーンショットから予約を自動検知します</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ OCR / ANALYZE ══ -->
+    <div class="page" id="pg-ocr">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0;flex-shrink:0;">
+        <button onclick="goBack()" style="font-size:14px;color:var(--acc);padding:6px 10px;border-radius:8px;border:1px solid rgba(91,142,255,0.3);background:rgba(91,142,255,0.08);">‹ 戻る</button>
+        <div style="font-size:16px;font-weight:600;margin-left:4px;">スクリーンショット解析</div>
+      </div>
+      <div style="font-size:12px;color:var(--t2);padding:4px 16px 12px;flex-shrink:0;">写真から目的地・住所・日時を自動抽出（端末内処理）</div>
+
+      <!-- Drop zone -->
+      <div class="ocr-dropzone fi" id="ocr-zone" onclick="document.getElementById('ocr-file').click()">
+        <div class="ocr-ico">📸</div>
+        <div class="ocr-label">写真を選択する</div>
+        <div class="ocr-hint">予約確認画面・地図・メールのスクリーンショット<br>Apple Vision Framework で端末内解析します</div>
+      </div>
+      <input type="file" id="ocr-file" accept="image/*" onchange="handleOcrFile(this)"/>
+
+      <!-- Preview -->
+      <div id="ocr-preview-area" style="display:none;flex:1;overflow:hidden;display:none;flex-direction:column;">
+        <div class="ocr-preview-wrap fi" style="flex-shrink:0;">
+          <img id="ocr-img" src="" alt="preview"/>
+          <div class="ocr-overlay">
+            <div class="ocr-status" id="ocr-status-lbl">解析中...</div>
+          </div>
+          <div class="scan-line" id="scan-line"></div>
+        </div>
+
+        <!-- Results -->
+        <div class="pscroll" style="padding:0 16px 16px;">
+          <div class="ocr-result-card fi1" id="ocr-result-card" style="display:none;">
+            <div class="ocr-result-title">✅ 解析結果（編集可能）</div>
+            <div class="ocr-field">
+              <div class="ocr-field-lbl">目的地名</div>
+              <input class="ocr-field-val editable" id="ocr-name" placeholder="例：関西国際空港"/>
+            </div>
+            <div class="ocr-field">
+              <div class="ocr-field-lbl">住所・場所</div>
+              <input class="ocr-field-val editable" id="ocr-addr" placeholder="例：大阪府泉南郡田尻町泉州空港北1"/>
+            </div>
+            <div class="ocr-field">
+              <div class="ocr-field-lbl">日時</div>
+              <input class="ocr-field-val editable" id="ocr-dt" placeholder="例：2026-04-12 14:30"/>
+            </div>
+            <div class="ocr-field" style="border-bottom:none;">
+              <div class="ocr-field-lbl">種別</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;" id="ocr-type-btns"></div>
+            </div>
+          </div>
+
+          <div id="ocr-extracted-text" style="display:none;" class="fi2">
+            <div class="sec-lbl" style="margin-top:12px;">抽出テキスト（参考）</div>
+            <div id="ocr-raw-text" style="font-size:11px;color:var(--t2);background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;padding:10px;line-height:1.6;max-height:120px;overflow-y:auto;"></div>
+          </div>
+        </div>
+        <div class="ocr-actions fi3">
+          <button class="btn-primary" style="background:linear-gradient(135deg,var(--acc),var(--acc2));" id="ocr-save-btn" onclick="saveOcrResult()">
+            <span>💾</span> 予約を保存する
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DETAIL ══ -->
+    <div class="page" id="pg-detail">
+      <div style="padding:10px 16px 0;flex-shrink:0;">
+        <button id="detail-back-btn" onclick="goBack()" style="font-size:14px;padding:6px 10px;border-radius:8px;border:1px solid;background:transparent;cursor:pointer;">‹ 戻る</button>
+      </div>
+      <div class="pscroll" style="padding:12px 16px 20px;">
+        <div class="detail-hero-wrap fi" id="detail-hero">
+          <div class="detail-bg-emoji" id="dh-bg-emoji"></div>
+          <div class="detail-emoji" id="dh-emoji"></div>
+          <div class="detail-name" id="dh-name"></div>
+          <div class="detail-sub" id="dh-sub"></div>
+          <div class="detail-chips">
+            <div class="chip"><div class="chip-lbl">日時</div><div class="chip-val" id="dh-dt"></div></div>
+            <div class="chip"><div class="chip-lbl">残り時間</div><div class="chip-val" id="dh-cd" style="color:var(--acc);"></div></div>
+          </div>
+        </div>
+
+        <!-- Address copy -->
+        <div class="card2 fi1" style="margin-bottom:12px;">
+          <div class="sec-lbl">住所・場所</div>
+          <button class="addr-copy-btn" id="addr-copy-btn" onclick="copyAddr()">
+            <span style="font-size:16px;">📍</span>
+            <div class="f1">
+              <div id="dh-addr" style="font-size:13px;font-weight:500;color:var(--t1);">---</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:2px;">タップでコピー</div>
+            </div>
+            <span style="font-size:16px;color:var(--t3);">⎘</span>
+          </button>
+        </div>
+
+        <!-- NAV BUTTONS -->
+        <div class="nav-btns fi2">
+          <button class="nav-btn" id="gmap-btn" onclick="openGmap()">
+            <span style="font-size:24px;">🗺️</span>
+            <span>Google マップ</span>
+            <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.7);">で経路</span>
+          </button>
+          <button class="nav-btn" id="amap-btn" onclick="openAmap()">
+            <span style="font-size:24px;">🍎</span>
+            <span>Apple マップ</span>
+            <span style="font-size:10px;font-weight:400;color:rgba(255,255,255,0.7);">で経路</span>
+          </button>
+        </div>
+
+        <!-- Details -->
+        <div class="card2 fi3" style="margin-bottom:12px;">
+          <div class="sec-lbl">移動ルート（参考）</div>
+          <div class="row gap8" style="padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--bdr);">
+            <span style="font-size:15px;width:22px;text-align:center;flex-shrink:0;">🚶</span>
+            <span style="font-size:13px;color:var(--t2);flex:1;">最寄り駅まで徒歩</span>
+            <span style="font-size:13px;font-family:var(--mono);">〜5分</span>
+          </div>
+          <div class="row gap8" style="padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--bdr);">
+            <span style="font-size:15px;width:22px;text-align:center;flex-shrink:0;">🚆</span>
+            <span style="font-size:13px;color:var(--t2);flex:1;">公共交通機関</span>
+            <span style="font-size:13px;font-family:var(--mono);">〜60分</span>
+          </div>
+          <div class="row gap8">
+            <span style="font-size:15px;width:22px;text-align:center;flex-shrink:0;">ℹ️</span>
+            <span style="font-size:12px;color:var(--t3);flex:1;">正確な経路はGoogleマップ/Appleマップで確認してください</span>
+          </div>
+        </div>
+
+        <!-- Checklist for this reservation -->
+        <div class="card2 fi4" id="detail-cl-wrap">
+          <div class="sec-lbl">持ち物チェック</div>
+          <div id="detail-cl-list"></div>
+        </div>
+
+        <!-- Delete -->
+        <button onclick="deleteCurrentRes()" style="width:100%;margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(255,77,106,0.25);background:rgba(255,77,106,0.08);color:var(--red);font-size:14px;font-family:var(--font);cursor:pointer;">
+          🗑 この予約を削除
+        </button>
+      </div>
+    </div>
+
+    <!-- ══ CHECKLIST (standalone tab) ══ -->
+    <div class="page" id="pg-checklist">
+      <div class="ph">
+        <div class="ph-title">持ち物チェック</div>
+      </div>
+      <div class="cl-tab-row">
+        <div class="cl-tab-inner" id="cl-tabs"></div>
+      </div>
+      <div class="cl-prog-area">
+        <div class="row" style="justify-content:space-between;margin-bottom:6px;">
+          <span id="cl-res-lbl" style="font-size:12px;color:var(--t2);">---</span>
+          <span id="cl-prog-lbl" style="font-size:13px;font-weight:600;"></span>
+        </div>
+        <div class="prog-track">
+          <div id="cl-prog-fill" class="prog-fill" style="width:0%;background:linear-gradient(90deg,var(--acc),var(--acc2));"></div>
+        </div>
+      </div>
+      <div class="pscroll" style="padding:0 16px 16px;">
+        <div id="cl-warn" style="display:none;margin-bottom:10px;padding:10px 12px;background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.25);border-radius:12px;">
+          <div class="row gap8" style="align-items:flex-start;">
+            <span style="font-size:16px;flex-shrink:0;">⚠️</span>
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--red);">必須アイテム未確認</div>
+              <div style="font-size:11px;color:var(--t2);margin-top:2px;">周辺ユーザーの75%がパスポート忘れを経験しています。出発前に必ず確認してください。</div>
+            </div>
+          </div>
+        </div>
+        <div id="cl-done-banner" style="display:none;padding:14px;background:rgba(0,214,143,0.1);border:1px solid rgba(0,214,143,0.25);border-radius:14px;text-align:center;margin-bottom:10px;">
+          <div style="font-size:28px;margin-bottom:4px;">✅</div>
+          <div style="font-size:14px;font-weight:600;color:var(--grn);">準備完了！</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:2px;">すべてのアイテムを確認しました</div>
+        </div>
+        <div id="cl-list"></div>
+      </div>
+    </div>
+
+    <!-- ══ NOTIFICATIONS ══ -->
+    <div class="page" id="pg-notifs">
+      <div style="padding:10px 20px 12px;flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+          <div class="ph-title">通知</div>
+          <div id="notif-unread-lbl" class="ph-sub"></div>
+        </div>
+        <button onclick="markAllRead()" id="notif-readall-btn" style="font-size:12px;color:var(--acc);padding:4px 10px;border-radius:8px;border:1px solid rgba(91,142,255,0.3);background:rgba(91,142,255,0.08);">すべて既読</button>
+      </div>
+      <div class="pscroll" style="padding:0 16px 16px;">
+        <div id="notif-list"></div>
+        <div style="margin-top:8px;">
+          <div class="sec-lbl">通知設定</div>
+          <div id="notif-settings"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pages -->
+
+  <!-- TAB BAR -->
+  <div id="tabbar" id="tabbar-el">
+    <button class="tb" data-pg="pg-schedule" onclick="showTab('pg-schedule')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z" stroke="var(--t3)" stroke-width="1.5" fill="none" stroke-linejoin="round"/><path d="M9 21V12h6v9" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="tb-lbl">ホーム</span>
+    </button>
+    <button class="tb" data-pg="pg-ocr" onclick="showTab('pg-ocr')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="var(--t3)" stroke-width="1.5" fill="none"/><path d="M8 12h8M12 8v8" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="tb-lbl">解析</span>
+    </button>
+    <button class="tb" data-pg="pg-checklist" onclick="showTab('pg-checklist')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="var(--t3)" stroke-width="1.5" fill="none"/><path d="M7.5 12l3 3 6-6" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="tb-lbl">持ち物</span>
+    </button>
+    <button class="tb" data-pg="pg-notifs" onclick="showTab('pg-notifs')">
+      <div class="notif-badge" id="notif-tab-dot" style="display:none;"></div>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2a6 6 0 016 6v3.5l1.5 2.5H4.5L6 11.5V8a6 6 0 016-6z" stroke="var(--t3)" stroke-width="1.5" fill="none" stroke-linejoin="round"/><path d="M9.5 18.5a2.5 2.5 0 005 0" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span class="tb-lbl">通知</span>
+    </button>
+  </div>
+
+  <!-- ALARM OVERLAY -->
+  <div id="alarm-overlay">
+    <div class="alarm-icon">🚨</div>
+    <div class="alarm-title" id="alarm-title">出発限界時刻を超過！</div>
+    <div class="alarm-body" id="alarm-body">今すぐ出発しないと間に合いません！</div>
+    <button class="alarm-dismiss" onclick="dismissAlarm()">確認しました — 今すぐ出発</button>
+    <div class="alarm-note">⚠️ この警告は安全のため音量を変更できません</div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast">コピーしました</div>
+
+</div><!-- /phone -->
+</div><!-- /shell -->
+
+<script>
+// ══════════════════════════════════════════════
+// FIREBASE CONFIG
+// ══════════════════════════════════════════════
+// NOTE: Replace with your actual Firebase config
+var FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+var firebaseApp = null;
+var auth = null;
+var db = null;
+var currentUser = null;
+var IS_DEMO = false;
+
+function initFirebase() {
+  try {
+    if (FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY') return; // demo only
+    firebaseApp = firebase.initializeApp(FIREBASE_CONFIG);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    auth.onAuthStateChanged(function(user) {
+      if (user) {
+        currentUser = user;
+        onLoggedIn(user);
+      }
+    });
+  } catch(e) {
+    console.warn('Firebase not configured, running in demo mode');
+  }
+}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+var reservations = []; // array of res objects
+var clActiveIdx = 0;
+var clChecked = {};    // key: resId_itemId
+var notifItems = [];
+var notifSettings = [
+  { icon:'⏰', label:'出発推奨通知',       desc:'出発30分前に通知',          on:true  },
+  { icon:'🚨', label:'緊急アラーム（固定）', desc:'限界時刻に最大音量で警告。音量設定不可。', on:true, locked:true },
+  { icon:'🔍', label:'予約自動検知',       desc:'新しい予約を自動で登録',    on:true  },
+  { icon:'📦', label:'持ち物リマインダー', desc:'出発前のチェックリスト通知', on:false },
+];
+var currentDetailRes = null;
+var pageHistory = ['pg-login'];
+var alarmFired = {};   // resId: true
+var alarmAudio = null;
+var alarmInterval = null;
+
+// OCR result staging
+var ocrStaged = { name:'', addr:'', dt:'', type:'flight' };
+
+// Demo reservations
+var DEMO_RES = [
+  { id:'r1', type:'flight',     emoji:'✈️', name:'JAL 304',          subtitle:'神戸 → 大阪（関西国際空港）', addr:'関西国際空港 T2, 大阪府泉南郡田尻町泉州空港北1', dt: dtPlus(2,0),  color:'#5B8EFF', checklist:['passport','ticket','phone','wallet'] },
+  { id:'r2', type:'hotel',      emoji:'🏨', name:'ホテルグランヴィア大阪', subtitle:'チェックイン 15:00〜',      addr:'大阪市北区梅田3丁目1-1',          dt: dtPlus(5,0),  color:'#00D68F', checklist:['phone','wallet','charger'] },
+  { id:'r3', type:'car',        emoji:'🚗', name:'トヨタレンタカー',      subtitle:'梅田営業所 / 普通車',         addr:'大阪市北区角田町8-1',             dt: dtPlus(7,0),  color:'#FFB547', checklist:['license','phone','wallet'] },
+  { id:'r4', type:'restaurant', emoji:'🍽️', name:'懐石料理 花むら',      subtitle:'ディナー 19:00 / 2名',        addr:'大阪市中央区道頓堀1-7-11',        dt: dtPlus(9,0),  color:'#A78BFA', checklist:['phone','wallet'] },
+  { id:'r5', type:'ferry',      emoji:'⛴️', name:'阪九フェリー（車載）',  subtitle:'神戸→北九州 / 乗用車1台',    addr:'阪九フェリー神戸港ターミナル, 兵庫県神戸市中央区新港町15-1', dt: dtPlus(12,0), color:'#38BDF8', checklist:['vehicle_cert','ferry_ticket','vehicle_ins','license','phone','wallet'], subtitle:'神戸→北九州 / 乗用車1台', ferry:true },
+];
+
+var CHECKLIST_MASTER = {
+  passport: { id:'passport', label:'パスポート',              note:'有効期限を必ず確認',     icon:'🛂', priority:'critical' },
+  ticket:   { id:'ticket',   label:'航空券（eチケット）',     note:'スマホで確認可',         icon:'🎫', priority:'high'     },
+  license:  { id:'license',  label:'運転免許証',              note:'レンタカー利用に必須',   icon:'🪪', priority:'critical' },
+  phone:    { id:'phone',    label:'スマートフォン',           note:'充電も忘れずに',         icon:'📱', priority:'medium'   },
+  wallet:   { id:'wallet',   label:'財布・クレジットカード',   note:'海外カードも確認',       icon:'👛', priority:'medium'   },
+  charger:  { id:'charger',  label:'充電器・モバイルバッテリー', note:'変換プラグも',          icon:'🔌', priority:'medium'   },
+  keys:         { id:'keys',         label:'家の鍵',                    note:'出かける前に確認',                     icon:'🔑', priority:'medium'   },
+  vehicle_cert: { id:'vehicle_cert', label:'車検証',                    note:'フェリー乗船時に必須（原本）',         icon:'📋', priority:'critical' },
+  ferry_ticket: { id:'ferry_ticket', label:'フェリー乗船券',             note:'車両予約確認書も持参',                 icon:'🎟️', priority:'critical' },
+  vehicle_ins:  { id:'vehicle_ins',  label:'自動車保険証書',             note:'任意保険・自賠責保険証明書',           icon:'📄', priority:'high'     },
+};
+
+var NOTIF_CFG = {
+  urgent:    { color:'#FF4D6A', bg:'rgba(255,77,106,0.1)',   border:'rgba(255,77,106,0.3)',  icon:'🚨' },
+  checklist: { color:'#FFB547', bg:'rgba(255,181,71,0.1)',   border:'rgba(255,181,71,0.25)', icon:'🧳' },
+  detected:  { color:'#00D68F', bg:'rgba(0,214,143,0.08)',  border:'rgba(0,214,143,0.2)',   icon:'✅' },
+  visa:      { color:'#A78BFA', bg:'rgba(167,139,250,0.1)', border:'rgba(167,139,250,0.3)', icon:'🛂' },
+};
+
+var TYPE_INFO = {
+  flight:     { emoji:'✈️', color:'#5B8EFF', label:'フライト',         bg:'rgba(91,142,255,0.15)'  },
+  hotel:      { emoji:'🏨', color:'#00D68F', label:'ホテル',           bg:'rgba(0,214,143,0.12)'   },
+  car:        { emoji:'🚗', color:'#FFB547', label:'レンタカー',       bg:'rgba(255,181,71,0.12)'  },
+  ferry:      { emoji:'⛴️', color:'#38BDF8', label:'フェリー（車載）', bg:'rgba(56,189,248,0.12)'  },
+  restaurant: { emoji:'🍽️', color:'#A78BFA', label:'レストラン',       bg:'rgba(167,139,250,0.12)' },
+  train:      { emoji:'🚆', color:'#34C8A0', label:'電車',             bg:'rgba(52,200,160,0.12)'  },
+  other:      { emoji:'📌', color:'#8899AA', label:'その他',           bg:'rgba(136,153,170,0.12)' },
+};
+
+// ── ビザ必要国データベース (日本パスポート保持者) ──
+var VISA_REQUIRED_COUNTRIES = {
+  'インド':        { url:'https://indianvisaonline.gov.in/', note:'e-Visaオンライン申請可' },
+  'ベトナム':      { url:'https://evisa.xuatnhapcanh.gov.vn/', note:'e-Visaオンライン申請可（90日以内は免除）' },
+  'ロシア':        { url:'https://evisa.kdmid.ru/', note:'大使館申請またはe-Visa' },
+  '中国':          { url:'https://www.visaforchina.cn/', note:'大使館申請（一部地域で免除）' },
+  'インドネシア':  { url:'https://molina.imigrasi.go.id/', note:'到着ビザ（VOA）またはe-Visa' },
+  'カンボジア':    { url:'https://www.evisa.gov.kh/', note:'e-Visaオンライン申請可' },
+  'ミャンマー':    { url:'https://evisa.moip.gov.mm/', note:'e-Visaオンライン申請可' },
+  'スリランカ':    { url:'https://eta.gov.lk/', note:'ETAオンライン申請可' },
+  'パキスタン':    { url:'https://visa.nadra.gov.pk/', note:'オンラインビザ申請可' },
+  'ネパール':      { url:'https://nepaliport.immigration.gov.np/', note:'到着ビザまたはオンライン申請' },
+  'ブータン':      { url:'https://www.tourism.gov.bt/', note:'政府公認ツアー予約が必要' },
+  'ケニア':        { url:'https://evisa.go.ke/', note:'e-Visa申請可' },
+  'エチオピア':    { url:'https://www.evisa.gov.et/', note:'e-Visa申請可' },
+  'キューバ':      { url:'https://www.cubadiplomatica.cu/', note:'ツーリストカードが必要' },
+  'ブラジル':      { url:'https://formulario-mre.serpro.gov.br/', note:'電子ビザ申請（免除期間要確認）' },
+  'サウジアラビア':{ url:'https://visa.visitsaudi.com/', note:'e-Visa申請可（観光）' },
+  'イラン':        { url:'https://evisairan.ir/', note:'大使館申請または到着ビザ' },
+  'アルジェリア':  { url:'https://www.consulfrance-alger.org/', note:'大使館申請が必要' },
+  'ナイジェリア':  { url:'https://immigration.gov.ng/', note:'大使館申請が必要' },
+  'アフガニスタン':{ url:'https://www.mfa.gov.af/', note:'大使館申請が必要（渡航注意）' },
+  'india':         { url:'https://indianvisaonline.gov.in/', note:'e-Visa available' },
+  'russia':        { url:'https://evisa.kdmid.ru/', note:'e-Visa or embassy' },
+  'china':         { url:'https://www.visaforchina.cn/', note:'Embassy required' },
+  'indonesia':     { url:'https://molina.imigrasi.go.id/', note:'VOA or e-Visa' },
+  'cambodia':      { url:'https://www.evisa.gov.kh/', note:'e-Visa available' },
+  'myanmar':       { url:'https://evisa.moip.gov.mm/', note:'e-Visa available' },
+  'srilanka':      { url:'https://eta.gov.lk/', note:'ETA available' },
+  'nepal':         { url:'https://nepaliport.immigration.gov.np/', note:'On arrival or online' },
+  'kenya':         { url:'https://evisa.go.ke/', note:'e-Visa available' },
+  'cuba':          { url:'https://www.cubadiplomatica.cu/', note:'Tourist card required' },
+  'brazil':        { url:'https://formulario-mre.serpro.gov.br/', note:'e-Visa required' },
+  'saudi':         { url:'https://visa.visitsaudi.com/', note:'e-Visa for tourism' },
+  'iran':          { url:'https://evisairan.ir/', note:'Embassy or arrival visa' },
+};
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function dtPlus(h, m) {
+  var d = new Date();
+  d.setHours(d.getHours()+h, d.getMinutes()+(m||0), 0, 0);
+  return d;
+}
+function el(id) { return document.getElementById(id); }
+function fmtT(d) { return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+function fmtD(d) {
+  var wd = ['日','月','火','水','木','金','土'][d.getDay()];
+  return (d.getMonth()+1)+'月'+d.getDate()+'日（'+wd+'）';
+}
+function fmtDT(d) { return fmtD(d)+' '+fmtT(d); }
+function fmtAgo(d) {
+  var s = Math.floor((Date.now()-d.getTime())/1000);
+  if (s<60) return 'たった今';
+  if (s<3600) return Math.floor(s/60)+'分前';
+  if (s<86400) return Math.floor(s/3600)+'時間前';
+  return Math.floor(s/86400)+'日前';
+}
+function countdown(target) {
+  var s = Math.floor((target.getTime()-Date.now())/1000);
+  if (s<=0) return { label:'時間切れ', urgent:true, secs:0, overdue:true };
+  var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  var label = h>0 ? h+'h '+m+'m' : m>0 ? m+'分 '+sec+'秒' : sec+'秒';
+  return { label:label, urgent:s<3600, secs:s, overdue:false };
+}
+function clKey(ri, itemId) { return ri+'_'+itemId; }
+function uid() { return 'r_'+Date.now()+'_'+Math.random().toString(36).slice(2,7); }
+function showToast(msg) {
+  var t=el('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2000);
+}
+function getTypeInfo(type) { return TYPE_INFO[type]||TYPE_INFO.other; }
+
+// ══════════════════════════════════════════════
+// PAGE NAVIGATION
+// ══════════════════════════════════════════════
+var TABBAR_PAGES = ['pg-schedule','pg-ocr','pg-checklist','pg-notifs'];
+
+function showPage(id, pushHistory) {
+  if (pushHistory !== false) pageHistory.push(id);
+  document.querySelectorAll('.page').forEach(function(p) {
+    p.classList.remove('active','slide-left');
+    p.classList.add('slide-left'); // default exit
+  });
+  var target = el(id);
+  if (target) {
+    target.classList.remove('slide-left');
+    target.classList.add('active');
+  }
+  // Tab bar visibility
+  var showTab = TABBAR_PAGES.indexOf(id) >= 0;
+  el('tabbar').style.display = showTab ? 'flex' : 'none';
+  // Update tab highlights
+  document.querySelectorAll('.tb').forEach(function(b){
+    b.classList.toggle('on', b.dataset.pg === id);
+    // Icon stroke update
+    b.querySelectorAll('path,rect,circle').forEach(function(shape){
+      shape.setAttribute('stroke', b.dataset.pg===id ? 'var(--acc)' : 'var(--t3)');
+    });
+  });
+}
+
+function showTab(id) {
+  pageHistory = [id]; // reset history for tab switch
+  showPage(id, false);
+  if (id==='pg-checklist') renderChecklist();
+  if (id==='pg-notifs') renderNotifications();
+  if (id==='pg-schedule') updateSchedule();
+}
+
+function goBack() {
+  pageHistory.pop();
+  var prev = pageHistory[pageHistory.length-1] || 'pg-schedule';
+  showPage(prev, false);
+  if (prev==='pg-schedule') updateSchedule();
+}
+
+// ══════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════
+function doGoogleLogin() {
+  if (!auth) { doDemo(); return; }
+  var provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).then(function(result) {
+    onLoggedIn(result.user);
+  }).catch(function(err) {
+    console.warn('Login error:', err.message);
+    showToast('ログインに失敗しました。デモモードで続けます。');
+    doDemo();
+  });
+}
+
+function doDemo() {
+  IS_DEMO = true;
+  currentUser = { uid:'demo', displayName:'デモユーザー', email:'demo@example.com', photoURL:null };
+  reservations = DEMO_RES.slice();
+  onLoggedIn(currentUser);
+}
+
+function triggerDemoBanners() {
+  // Demo: JAL304はフライトのみなのでビザなし。フェリーデモでバナー表示
+  var ferry = reservations.find(function(r){ return r.type==='ferry'; });
+  if (ferry) {
+    setTimeout(function(){
+      showVisaBanner(null, 'ferry', null);
+      addNotification({
+        id:'n_demo_ferry', type:'checklist',
+        title:'🚢 フェリー車載：車検証を必ず持参',
+        body:'阪九フェリーへの乗船時に車検証の原本提示が必要です。自賠責・任意保険証書も忘れずに。',
+        time:new Date(), read:false, action:'持ち物を確認'
+      });
+    }, 1500);
+  }
+}
+
+function onLoggedIn(user) {
+  currentUser = user;
+  var name = user.displayName || user.email || 'ユーザー';
+  el('sch-avatar').textContent = (name[0]||'U').toUpperCase();
+  el('sch-username').textContent = name;
+  if (!IS_DEMO && db) loadFromFirestore();
+  addDemoNotifications();
+  showPage('pg-schedule');
+  startClock();
+  updateSchedule();
+  if (IS_DEMO) setTimeout(triggerDemoBanners, 800);
+}
+
+// ══════════════════════════════════════════════
+// FIRESTORE
+// ══════════════════════════════════════════════
+function getColRef() {
+  if (!db || !currentUser) return null;
+  return db.collection('users').doc(currentUser.uid).collection('reservations');
+}
+
+function loadFromFirestore() {
+  var col = getColRef(); if (!col) return;
+  col.orderBy('dt').get().then(function(snap) {
+    reservations = [];
+    snap.forEach(function(doc) {
+      var d = doc.data();
+      d.dt = d.dt && d.dt.toDate ? d.dt.toDate() : new Date(d.dt);
+      d.id = doc.id;
+      reservations.push(d);
+    });
+    updateSchedule();
+  }).catch(function(e){ console.warn('Firestore load error', e); });
+}
+
+function saveToFirestore(res) {
+  var col = getColRef(); if (!col) return;
+  var data = Object.assign({}, res);
+  data.dt = firebase.firestore.Timestamp.fromDate(res.dt instanceof Date ? res.dt : new Date(res.dt));
+  col.doc(res.id).set(data).catch(function(e){ console.warn('Firestore save error', e); });
+}
+
+function deleteFromFirestore(id) {
+  var col = getColRef(); if (!col) return;
+  col.doc(id).delete().catch(function(e){ console.warn('Firestore delete error', e); });
+}
+
+// ══════════════════════════════════════════════
+// CLOCK & COUNTDOWN TICKER
+// ══════════════════════════════════════════════
+var clockInterval = null;
+function startClock() {
+  if (clockInterval) clearInterval(clockInterval);
+  clockTick();
+  clockInterval = setInterval(clockTick, 1000);
+}
+
+function clockTick() {
+  var now = new Date();
+  el('sb-clock').textContent = fmtT(now);
+  el('sch-date').textContent = fmtD(now);
+  updateCountdownBanner();
+  checkAlarms();
+}
+
+function updateCountdownBanner() {
+  if (reservations.length===0) {
+    el('sch-countdown-card').style.display='none';
+    return;
+  }
+  var next = reservations.slice().sort(function(a,b){ return new Date(a.dt)-new Date(b.dt); })
+    .find(function(r){ return new Date(r.dt).getTime()>Date.now()-60000; });
+  if (!next) { el('sch-countdown-card').style.display='none'; return; }
+  el('sch-countdown-card').style.display='block';
+  var cd = countdown(new Date(next.dt));
+  var ti = getTypeInfo(next.type);
+  el('sch-cd-emoji').textContent = next.emoji||ti.emoji;
+  el('sch-cd-val').textContent = cd.label;
+  el('sch-cd-val').style.color = cd.urgent ? 'var(--red)' : 'var(--acc)';
+  el('sch-countdown-card').style.borderColor = cd.urgent ? 'rgba(255,77,106,0.35)' : 'rgba(91,142,255,0.22)';
+  el('sch-countdown-card').style.background = cd.urgent ? 'rgba(255,77,106,0.08)' : 'rgba(91,142,255,0.07)';
+  // depart time: now + max(secs-90min, 0)
+  var departMs = Date.now()+Math.max(0,(cd.secs-90*60))*1000;
+  el('sch-depart').textContent = fmtT(new Date(departMs));
+  // urgent banner
+  if (cd.urgent && cd.secs < 1800) {
+    el('sch-urgent-banner').style.display='block';
+    el('sch-urgent-title').textContent = '出発限界時刻が近づいています！';
+    el('sch-urgent-body').textContent = next.name+'まで残り'+cd.label+'です。今すぐ準備してください。';
+  } else {
+    el('sch-urgent-banner').style.display='none';
+  }
+  // update detail countdown if open
+  if (currentDetailRes && currentDetailRes.id===next.id) {
+    el('dh-cd').textContent = cd.label;
+    el('dh-cd').style.color = cd.urgent ? 'var(--red)' : currentDetailRes.color||'var(--acc)';
+  }
+}
+
+// ══════════════════════════════════════════════
+// ALARM SYSTEM
+// ══════════════════════════════════════════════
+function checkAlarms() {
+  reservations.forEach(function(res) {
+    var dt = new Date(res.dt);
+    var secs = Math.floor((dt.getTime()-Date.now())/1000);
+    // Fire alarm when overdue (secs <= 0) and not already fired
+    if (secs <= 0 && !alarmFired[res.id]) {
+      alarmFired[res.id] = true;
+      fireAlarm(res);
+    }
+    // Checklist reminder at 30 min before
+    if (secs > 0 && secs <= 1800 && secs > 1740 && !alarmFired['remind_'+res.id]) {
+      alarmFired['remind_'+res.id] = true;
+      addNotification({
+        id:'n_remind_'+res.id, type:'checklist',
+        title:'🧳 出発30分前チェック',
+        body:res.name+'の出発まで30分です。持ち物を確認してください。',
+        time:new Date(), read:false, action:'確認する'
+      });
+    }
+  });
+}
+
+function fireAlarm(res) {
+  // Show full-screen alarm
+  el('alarm-title').textContent = '🚨 出発限界時刻を超過！';
+  el('alarm-body').textContent = res.name+' の出発時刻を過ぎました！\n今すぐ出発してください！';
+  el('alarm-overlay').classList.add('on');
+
+  // Add to notifications
+  addNotification({
+    id:'n_alarm_'+res.id, type:'urgent',
+    title:'🚨 出発限界時刻を超過！',
+    body:res.name+'の出発時刻を過ぎました。今すぐ出発してください。',
+    time:new Date(), read:false, action:'ナビを起動'
+  });
+
+  // Audio: use Web Audio API to play a loud beeping alarm
+  // Note: browsers require user interaction first. We trigger on the existing
+  // user session which began at login tap. Volume is forced to 1.0.
+  try {
+    var AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      var ctx = new AudioContext();
+      var beepCount = 0;
+      function beep() {
+        if (!el('alarm-overlay').classList.contains('on')) return;
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(660, ctx.currentTime+0.1);
+        gain.gain.setValueAtTime(1.0, ctx.currentTime); // max volume, no user control
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.3);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime+0.3);
+        beepCount++;
+        if (beepCount<999 && el('alarm-overlay').classList.contains('on')) {
+          setTimeout(beep, 500);
+        }
+      }
+      beep();
+      alarmAudio = ctx;
+    }
+  } catch(e) {
+    console.warn('Audio alarm error:', e);
+  }
+}
+
+function dismissAlarm() {
+  el('alarm-overlay').classList.remove('on');
+  if (alarmAudio) {
+    try { alarmAudio.close(); } catch(e) {}
+    alarmAudio = null;
+  }
+}
+
+// ══════════════════════════════════════════════
+// SCHEDULE RENDER
+// ══════════════════════════════════════════════
+function updateSchedule() {
+  var sorted = reservations.slice().sort(function(a,b){ return new Date(a.dt)-new Date(b.dt); });
+  var list = el('sch-list');
+  list.innerHTML='';
+  if (sorted.length===0) {
+    el('sch-empty').style.display='flex';
+    el('sch-countdown-card').style.display='none';
+    return;
+  }
+  el('sch-empty').style.display='none';
+  sorted.forEach(function(res, i) {
+    var cd = countdown(new Date(res.dt));
+    var ti = getTypeInfo(res.type);
+    var emoji = res.emoji||ti.emoji;
+    var color = res.color||ti.color;
+    var card = document.createElement('button');
+    card.className='res-card'+(cd.urgent?' urgent':'');
+    card.style.fontFamily='var(--font)';
+    var strip = cd.urgent ? '<div class="res-top-strip"></div>' : '';
+    card.innerHTML = strip
+      +'<div class="res-ico" style="background:'+(cd.urgent?'rgba(255,77,106,0.15)':color+'18')+'">'+emoji+'</div>'
+      +'<div class="f1">'
+      +'<div class="res-title trunc">'+res.name+'</div>'
+      +'<div class="res-sub trunc">'+(res.subtitle||res.addr||'')+'</div>'
+      +'</div>'
+      +'<div>'
+      +'<div class="res-time">'+fmtT(new Date(res.dt))+'</div>'
+      +'<div class="res-cd" style="color:'+(cd.urgent?'var(--red)':'var(--grn)')+'">'+cd.label+'</div>'
+      +'</div>'
+      +'<div class="res-dot" style="background:'+(cd.urgent?'var(--red)':color)+'"></div>';
+    card.addEventListener('click', function(){ openDetail(res); });
+    list.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════════════
+// DETAIL
+// ══════════════════════════════════════════════
+function openDetail(res) {
+  currentDetailRes = res;
+  var ti = getTypeInfo(res.type);
+  var color = res.color||ti.color;
+  var emoji = res.emoji||ti.emoji;
+
+  var backBtn = el('detail-back-btn');
+  backBtn.style.color=color;
+  backBtn.style.borderColor=color+'55';
+  backBtn.style.background=color+'11';
+
+  var hero = el('detail-hero');
+  hero.style.background='linear-gradient(135deg,'+color+'20,'+color+'08)';
+  hero.style.border='1px solid '+color+'30';
+
+  el('dh-bg-emoji').textContent=emoji;
+  el('dh-emoji').textContent=emoji;
+  el('dh-name').textContent=res.name||'---';
+  el('dh-sub').textContent=res.subtitle||res.addr||'';
+  el('dh-dt').textContent=fmtDT(new Date(res.dt));
+  var cd=countdown(new Date(res.dt));
+  el('dh-cd').textContent=cd.label;
+  el('dh-cd').style.color=cd.urgent?'var(--red)':color;
+  el('dh-addr').textContent=res.addr||'住所未設定';
+
+  var gmapBtn=el('gmap-btn'), amapBtn=el('amap-btn');
+  gmapBtn.style.background='linear-gradient(135deg,#1A73E8,#185ABC)';
+  gmapBtn.style.color='#fff';
+  amapBtn.style.background='linear-gradient(135deg,#555,#333)';
+  amapBtn.style.color='#fff';
+
+  // detail checklist
+  var dcl = el('detail-cl-list');
+  dcl.innerHTML='';
+  var items = (res.checklist||[]).map(function(id){ return CHECKLIST_MASTER[id]; }).filter(Boolean);
+  if (items.length===0) {
+    el('detail-cl-wrap').style.display='none';
+  } else {
+    el('detail-cl-wrap').style.display='block';
+    items.forEach(function(item, i){
+      var isLast=i===items.length-1;
+      var row=document.createElement('div');
+      row.className='row gap10';
+      row.style.cssText=(isLast?'':'padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--bdr);');
+      var badge=item.priority==='critical'?'<div style="font-size:10px;font-weight:600;color:var(--red);background:rgba(255,77,106,0.1);padding:2px 7px;border-radius:5px;flex-shrink:0;">必須</div>':'';
+      row.innerHTML='<span style="font-size:18px;flex-shrink:0;">'+item.icon+'</span>'
+        +'<div class="f1"><div style="font-size:13px;font-weight:500;">'+item.label+'</div>'
+        +'<div style="font-size:11px;color:var(--t3);">'+item.note+'</div></div>'+badge;
+      dcl.appendChild(row);
+    });
+  }
+  showPage('pg-detail');
+}
+
+function copyAddr() {
+  if (!currentDetailRes) return;
+  var addr = currentDetailRes.addr||'';
+  if (!addr) { showToast('住所が設定されていません'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(addr).then(function(){ showToast('住所をコピーしました'); }).catch(function(){ fallbackCopy(addr); });
+  } else { fallbackCopy(addr); }
+}
+function fallbackCopy(text) {
+  var ta=document.createElement('textarea');
+  ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); showToast('住所をコピーしました'); } catch(e){ showToast('コピー失敗'); }
+  document.body.removeChild(ta);
+}
+
+// ══════════════════════════════════════════════
+// MAP NAVIGATION — iOS URL Schemes + Web Fallback
+// ══════════════════════════════════════════════
+// Google Maps:
+//   iOS app:  comgooglemaps://?daddr=ADDRESS&directionsmode=transit
+//   Web fall: https://www.google.com/maps/dir/?api=1&destination=ADDRESS
+//
+// Apple Maps:
+//   iOS:      http://maps.apple.com/?daddr=ADDRESS&dirflg=r
+//             (dirflg: r=公共交通, d=車, w=徒歩)
+//   macOS:    maps://maps.apple.com/?daddr=ADDRESS
+//
+// 注意: URLスキームはiOS Safari / WKWebView内でのみ動作します。
+//       デスクトップブラウザではWebフォールバックを使用します。
+// ══════════════════════════════════════════════
+function openGmap() {
+  if (!currentDetailRes) return;
+  var dest = currentDetailRes.addr || currentDetailRes.name || '';
+  var enc  = encodeURIComponent(dest);
+
+  // iOS: Google Maps アプリ起動を試みる
+  // appがインストールされていない場合はWebへ自動フォールバック
+  var iosScheme = 'comgooglemaps://?daddr=' + enc + '&directionsmode=transit';
+  var webUrl    = 'https://www.google.com/maps/dir/?api=1&destination=' + enc + '&travelmode=transit';
+
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+    // iOSの場合：URLスキームで起動し、300ms後にアプリ未インストール判定でWebへ
+    var start = Date.now();
+    window.location.href = iosScheme;
+    setTimeout(function() {
+      // ページが変わっていない（アプリが開かなかった）場合のみWebへ
+      if (Date.now() - start < 1500) {
+        window.open(webUrl, '_blank');
+      }
+    }, 300);
+  } else {
+    // デスクトップ / Androidはそのままウェブを開く
+    window.open(webUrl, '_blank');
+  }
+}
+
+function openAmap() {
+  if (!currentDetailRes) return;
+  var dest = currentDetailRes.addr || currentDetailRes.name || '';
+  var enc  = encodeURIComponent(dest);
+
+  // Apple Maps URL Scheme
+  // dirflg: r=公共交通機関, d=車, w=徒歩
+  var iosScheme = 'maps://?daddr=' + enc + '&dirflg=r';
+  var webFallback = 'https://maps.apple.com/?daddr=' + enc + '&dirflg=r';
+
+  if (/iphone|ipad|ipod|mac/i.test(navigator.userAgent)) {
+    window.location.href = iosScheme;
+    // Apple Mapsはプリインストールなので基本フォールバック不要
+    // ただしmacOSで失敗する場合のため保険
+    setTimeout(function() {
+      window.open(webFallback, '_blank');
+    }, 800);
+  } else {
+    // Android / Windows: Google Mapsへリダイレクト（Apple Mapsは非対応）
+    var gwebUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + enc;
+    showToast('Apple マップはiOS/macOSのみ対応です。Googleマップを開きます。');
+    setTimeout(function(){ window.open(gwebUrl, '_blank'); }, 1200);
+  }
+}
+
+function deleteCurrentRes() {
+  if (!currentDetailRes) return;
+  if (!confirm(currentDetailRes.name+' を削除しますか？')) return;
+  var id = currentDetailRes.id;
+  reservations = reservations.filter(function(r){ return r.id!==id; });
+  deleteFromFirestore(id);
+  currentDetailRes = null;
+  goBack();
+  updateSchedule();
+  showToast('削除しました');
+}
+
+// ══════════════════════════════════════════════
+// OCR / ANALYZE
+// ══════════════════════════════════════════════
+var OCR_TYPES = ['flight','hotel','car','ferry','restaurant','train','other'];
+
+function handleOcrFile(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = el('ocr-img');
+    img.src = e.target.result;
+    var previewArea = el('ocr-preview-area');
+    previewArea.style.display='flex';
+    el('scan-line').style.display='block';
+    el('ocr-status-lbl').textContent='解析中 (Apple Vision OCR)...';
+    el('ocr-status-lbl').style.color='var(--ylw)';
+    el('ocr-result-card').style.display='none';
+    el('ocr-extracted-text').style.display='none';
+    simulateOCR(e.target.result);
+  };
+  reader.readAsDataURL(file);
+  // Reset input so same file can be re-selected
+  input.value='';
+}
+
+// Simulated OCR (real implementation uses Apple Vision via WKWebView bridge)
+// In production: WKScriptMessageHandler calls VNRecognizeTextRequest and posts result back
+function simulateOCR(dataUrl) {
+  setTimeout(function() {
+    // Simulate extraction
+    var fakeResults = [
+      { name:'関西国際空港', addr:'大阪府泉南郡田尻町泉州空港北1', dt:'2026-04-12 14:30', type:'flight', raw:'JAL304 大阪行き\n関西国際空港 T2\n2026年4月12日 14:30\n搭乗口 23A\n予約番号 JL-8842' },
+    ];
+    var res = fakeResults[0];
+    ocrStaged = { name:res.name, addr:res.addr, dt:res.dt, type:res.type };
+
+    el('scan-line').style.display='none';
+    el('ocr-status-lbl').textContent='✅ 解析完了';
+    el('ocr-status-lbl').style.color='var(--grn)';
+    el('ocr-result-card').style.display='block';
+    el('ocr-extracted-text').style.display='block';
+    el('ocr-name').value=res.name;
+    el('ocr-addr').value=res.addr;
+    el('ocr-dt').value=res.dt;
+    el('ocr-raw-text').textContent=res.raw;
+    renderOcrTypeBtns(res.type);
+  }, 2200);
+}
+
+function renderOcrTypeBtns(selected) {
+  var wrap = el('ocr-type-btns');
+  wrap.innerHTML='';
+  OCR_TYPES.forEach(function(t) {
+    var ti=getTypeInfo(t);
+    var btn=document.createElement('button');
+    var isOn=t===selected;
+    btn.style.cssText='padding:5px 10px;border-radius:8px;font-size:12px;font-weight:'+(isOn?'600':'400')+';'
+      +'border:1px solid '+(isOn?ti.color+'88':'var(--bdr)')+';'
+      +'background:'+(isOn?ti.bg:'var(--bg3)')+';'
+      +'color:'+(isOn?ti.color:'var(--t2)')+';cursor:pointer;font-family:var(--font);'
+      +'display:flex;align-items:center;gap:4px;';
+    btn.innerHTML=ti.emoji+' '+ti.label;
+    btn.addEventListener('click', function(){
+      ocrStaged.type=t;
+      renderOcrTypeBtns(t);
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function saveOcrResult() {
+  var name=el('ocr-name').value.trim();
+  var addr=el('ocr-addr').value.trim();
+  var dtStr=el('ocr-dt').value.trim();
+  var type=ocrStaged.type||'other';
+  if (!name&&!addr) { showToast('目的地名または住所を入力してください'); return; }
+  var dt;
+  try { dt=dtStr?new Date(dtStr.replace(/[年月日]/g,'-').replace(/[\s時]/g,':').replace(/分/,'')):new Date(); }
+  catch(e) { dt=new Date(); }
+  var ti=getTypeInfo(type);
+  var newRes={
+    id:uid(), type:type, emoji:ti.emoji, name:name,
+    subtitle:addr||'', addr:addr||'', dt:dt,
+    color:ti.color, checklist:getDefaultChecklist(type),
+  };
+  reservations.push(newRes);
+  if (!IS_DEMO) saveToFirestore(newRes);
+  addNotification({
+    id:'n_'+newRes.id, type:'detected',
+    title:'✅ 予約を自動検知',
+    body:name+(addr?' ('+addr+')':'')+' をスケジュールに追加しました。',
+    time:new Date(), read:false, action:'詳細を見る'
+  });
+
+  // ── フェリー車載：車検証通知 ──
+  if (type === 'ferry') {
+    addNotification({
+      id:'n_ferry_'+newRes.id, type:'checklist',
+      title:'🚢 フェリー車載：車検証を必ず持参',
+      body:'乗船時に車検証の原本提示が必要です。自賠責・任意保険証書も忘れずに。',
+      time:new Date(), read:false, action:'持ち物を確認'
+    });
+    showVisaBanner(null, 'ferry');
+  }
+
+  // ── ビザ要否チェック ──
+  checkVisaRequired(newRes);
+  showToast('予約を保存しました');
+  // Reset OCR page
+  el('ocr-preview-area').style.display='none';
+  el('ocr-result-card').style.display='none';
+  el('ocr-status-lbl').textContent='解析中...';
+  showTab('pg-schedule');
+}
+
+// ══════════════════════════════════════════════
+// VISA CHECK & FERRY ALERT
+// ══════════════════════════════════════════════
+function checkVisaRequired(res) {
+  // テキスト全体（名前・住所・サブタイトル）をスキャン
+  var allText = ((res.name||'') + ' ' + (res.addr||'') + ' ' + (res.subtitle||'')).toLowerCase();
+  var found = null;
+  Object.keys(VISA_REQUIRED_COUNTRIES).forEach(function(key) {
+    if (!found && allText.indexOf(key.toLowerCase()) >= 0) {
+      found = { country: key, info: VISA_REQUIRED_COUNTRIES[key] };
+    }
+  });
+  if (found) {
+    showVisaBanner(found.country, 'visa', found.info);
+    addNotification({
+      id:'n_visa_'+res.id,
+      type:'visa',
+      title:'🛂 ビザ申請はお済みですか？',
+      body:found.country+' への渡航にはビザが必要な場合があります。出発前に必ずご確認ください。',
+      time:new Date(), read:false, action:'ビザ申請サイトへ',
+      url: found.info.url
+    });
+  }
+}
+
+// ── ビザバナー（スケジュール画面に表示） ──
+var visaBannerTimer = null;
+function showVisaBanner(country, mode, info) {
+  var banner = el('visa-banner');
+  if (!banner) return;
+  if (mode === 'visa') {
+    el('visa-banner-title').textContent = '🛂 ビザ申請はお済みですか？';
+    el('visa-banner-body').textContent = (country||'') + ' への渡航にはビザが必要な場合があります。';
+    el('visa-banner-note').textContent = info && info.note ? info.note : '';
+    el('visa-banner-link').href = info && info.url ? info.url : '#';
+    el('visa-banner-link').textContent = '申請サイトを開く ›';
+    banner.style.background = 'rgba(167,139,250,0.12)';
+    banner.style.borderColor = 'rgba(167,139,250,0.35)';
+    el('visa-banner-title').style.color = '#A78BFA';
+  } else {
+    el('visa-banner-title').textContent = '🚢 フェリー車載：車検証を持参してください';
+    el('visa-banner-body').textContent = '乗船時に車検証（原本）の提示が義務付けられています。';
+    el('visa-banner-note').textContent = '自賠責保険証書・任意保険証書も必ず携帯してください。';
+    el('visa-banner-link').href = 'https://www.jaf.or.jp/';
+    el('visa-banner-link').textContent = 'JAF 車検証情報を確認 ›';
+    banner.style.background = 'rgba(56,189,248,0.1)';
+    banner.style.borderColor = 'rgba(56,189,248,0.3)';
+    el('visa-banner-title').style.color = '#38BDF8';
+  }
+  banner.style.display = 'block';
+  if (visaBannerTimer) clearTimeout(visaBannerTimer);
+  // Auto-hide after 30 seconds
+  visaBannerTimer = setTimeout(function(){ dismissVisaBanner(); }, 30000);
+}
+
+function dismissVisaBanner() {
+  var b = el('visa-banner');
+  if (b) b.style.display = 'none';
+}
+
+function getDefaultChecklist(type) {
+  var map={
+    flight:['passport','ticket','phone','wallet'],
+    hotel:['phone','wallet','charger'],
+    car:['license','phone','wallet'],
+    ferry:['vehicle_cert','ferry_ticket','vehicle_ins','license','phone','wallet'],
+    restaurant:['phone','wallet'],
+    train:['ticket','phone','wallet'],
+    other:['phone','wallet','keys'],
+  };
+  return map[type]||map.other;
+}
+
+// ══════════════════════════════════════════════
+// CHECKLIST
+// ══════════════════════════════════════════════
+var PRIO_ORDER=['critical','high','medium'];
+var PRIO_CFG={
+  critical:{ label:'必須', color:'#FF4D6A', bg:'rgba(255,77,106,0.1)' },
+  high:    { label:'重要', color:'#FFB547', bg:'rgba(255,181,71,0.1)' },
+  medium:  { label:'推奨', color:'#5B8EFF', bg:'rgba(91,142,255,0.1)' },
+};
+
+function renderChecklistTabs() {
+  var tabsEl=el('cl-tabs'); tabsEl.innerHTML='';
+  if (reservations.length===0) return;
+  reservations.forEach(function(res, i){
+    var btn=document.createElement('button');
+    btn.className='cl-tab'+(i===clActiveIdx?' on':'');
+    var ti=getTypeInfo(res.type);
+    btn.innerHTML='<span>'+(res.emoji||ti.emoji)+'</span><span>'+res.name+'</span>';
+    btn.addEventListener('click', function(){ clActiveIdx=i; renderChecklist(); });
+    tabsEl.appendChild(btn);
+  });
+}
+
+function renderChecklist() {
+  renderChecklistTabs();
+  if (reservations.length===0) {
+    el('cl-res-lbl').textContent='予約がありません';
+    el('cl-prog-lbl').textContent='';
+    el('cl-prog-fill').style.width='0%';
+    el('cl-list').innerHTML='<div class="empty-state"><div class="empty-ico">📋</div><div class="empty-txt">予約を追加してください</div></div>';
+    el('cl-warn').style.display='none';
+    el('cl-done-banner').style.display='none';
+    return;
+  }
+  if (clActiveIdx>=reservations.length) clActiveIdx=0;
+  var res=reservations[clActiveIdx];
+  var items=(res.checklist||[]).map(function(id){ return CHECKLIST_MASTER[id]; }).filter(Boolean);
+  el('cl-res-lbl').textContent=res.name+' — '+fmtT(new Date(res.dt));
+  var checked=items.filter(function(it){ return clChecked[clKey(res.id,it.id)]; }).length;
+  var total=items.length;
+  var pct=total>0?Math.round(checked/total*100):0;
+  el('cl-prog-lbl').textContent=checked+'/'+total;
+  el('cl-prog-lbl').style.color=checked===total?'var(--grn)':'var(--t1)';
+  el('cl-prog-fill').style.width=pct+'%';
+  el('cl-prog-fill').style.background=checked===total?'linear-gradient(90deg,var(--grn),#00F5A0)':'linear-gradient(90deg,var(--acc),var(--acc2))';
+  var criticals=items.filter(function(it){ return it.priority==='critical'; });
+  var critDone=criticals.every(function(it){ return clChecked[clKey(res.id,it.id)]; });
+  el('cl-warn').style.display=(!critDone&&criticals.length>0)?'block':'none';
+  el('cl-done-banner').style.display=(checked===total&&total>0)?'block':'none';
+  var list=el('cl-list'); list.innerHTML='';
+  PRIO_ORDER.forEach(function(prio){
+    var group=items.filter(function(it){ return it.priority===prio; });
+    if(!group.length) return;
+    var cfg=PRIO_CFG[prio];
+    var hdr=document.createElement('div');
+    hdr.className='group-hdr';
+    hdr.innerHTML='<div style="font-size:10px;font-weight:600;color:'+cfg.color+';background:'+cfg.bg+';padding:2px 8px;border-radius:6px;letter-spacing:0.5px;">'+cfg.label+'</div><div class="group-line"></div>';
+    list.appendChild(hdr);
+    group.forEach(function(item){
+      var k=clKey(res.id,item.id);
+      var isDone=!!clChecked[k];
+      var btn=document.createElement('button');
+      btn.className='check-item'+(isDone?' done':'');
+      var circCls='ck-circle'+(isDone?' done':'')+(!isDone&&prio==='critical'?' crit':'');
+      var check=isDone?'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>':'';
+      var badge=(!isDone&&prio==='critical')?'<div class="prio-badge critical">！</div>':'';
+      btn.innerHTML='<div class="'+circCls+'">'+check+'</div>'
+        +'<span style="font-size:18px;flex-shrink:0;">'+item.icon+'</span>'
+        +'<div class="f1"><div class="ck-lbl'+(isDone?' done':'')+'">'+item.label+'</div>'
+        +'<div class="ck-note">'+item.note+'</div></div>'+badge;
+      btn.addEventListener('click', function(){ clChecked[k]=!clChecked[k]; renderChecklist(); });
+      list.appendChild(btn);
+    });
+  });
+}
+
+// ══════════════════════════════════════════════
+// NOTIFICATIONS
+// ══════════════════════════════════════════════
+function addDemoNotifications() {
+  notifItems = [
+    { id:'n1', type:'urgent',    title:'🚨 出発限界時刻を超過！',    body:'今すぐ出発しないとJAL304便に乗り遅れます。関西空港まで最短1時間12分。',              time:new Date(Date.now()-2*60000),  read:false, action:'ナビを起動' },
+    { id:'n2', type:'checklist', title:'🧳 出発30分前チェック',      body:'パスポート・運転免許証の確認をしてください。JAL304 14:30発まで2時間。',            time:new Date(Date.now()-18*60000), read:false, action:'確認する' },
+    { id:'n3', type:'detected',  title:'✅ 予約を自動検知',          body:'ホテルグランヴィア大阪 (チェックイン) をカレンダーに登録しました。',                  time:new Date(Date.now()-45*60000), read:true,  action:'詳細を見る' },
+  ];
+  updateNotifBadge();
+}
+
+function addNotification(notif) {
+  notifItems.unshift(notif);
+  updateNotifBadge();
+}
+
+function updateNotifBadge() {
+  var unread=notifItems.filter(function(n){ return !n.read; }).length;
+  el('notif-tab-dot').style.display=unread>0?'block':'none';
+}
+
+function renderNotifications() {
+  var unread=notifItems.filter(function(n){ return !n.read; }).length;
+  el('notif-unread-lbl').textContent=unread>0?'未読 '+unread+'件':'';
+  el('notif-readall-btn').style.display=unread>0?'block':'none';
+  var list=el('notif-list');
+  list.innerHTML='';
+  if(notifItems.length===0){
+    list.innerHTML='<div class="empty-state"><div class="empty-ico">🔔</div><div class="empty-txt">通知はありません</div></div>';
+  } else {
+    notifItems.forEach(function(n){
+      var cfg=NOTIF_CFG[n.type]||NOTIF_CFG.detected;
+      var card=document.createElement('div');
+      card.className='notif-card-item';
+      card.style.cssText='background:'+(n.read?'var(--bg2)':cfg.bg)+';border:1px solid '+(n.read?'var(--bdr)':cfg.border)+';';
+      var dot=n.read?'':'<div class="notif-read-dot" style="background:'+cfg.color+';"></div>';
+      card.innerHTML=dot
+        +'<div class="row gap10" style="margin-bottom:6px;align-items:flex-start;">'
+        +'<span style="font-size:18px;flex-shrink:0;line-height:1.3;">'+cfg.icon+'</span>'
+        +'<div class="f1"><div style="font-size:13px;font-weight:600;color:'+(n.read?'var(--t1)':cfg.color)+';margin-bottom:3px;padding-right:'+(n.read?'0':'16px')+';">'+n.title+'</div>'
+        +'<div style="font-size:12px;color:var(--t2);line-height:1.5;">'+n.body+'</div></div></div>'
+        +'<div class="row" style="justify-content:space-between;padding-left:28px;">'
+        +'<span style="font-size:10px;color:var(--t3);">'+fmtAgo(n.time)+'</span>'
+        +'<div style="display:flex;gap:6px;">'
+        +'<button data-nid="'+n.id+'" data-action="dismiss" style="font-size:10px;color:var(--t3);padding:3px 8px;border-radius:6px;border:1px solid var(--bdr);background:transparent;cursor:pointer;font-family:var(--font);">消去</button>'
+        +(n.url
+          ? '<a href="'+n.url+'" target="_blank" rel="noopener" data-nid="'+n.id+'" data-action="act" style="font-size:10px;color:'+cfg.color+';padding:3px 10px;border-radius:6px;border:1px solid '+cfg.color+'44;background:'+cfg.bg+';font-weight:500;font-family:var(--font);text-decoration:none;display:inline-block;">'+n.action+'</a>'
+          : '<button data-nid="'+n.id+'" data-action="act" style="font-size:10px;color:'+cfg.color+';padding:3px 10px;border-radius:6px;border:1px solid '+cfg.color+'44;background:'+cfg.bg+';cursor:pointer;font-weight:500;font-family:var(--font);">'+n.action+'</button>')
+        +'</div></div>';
+      card.addEventListener('click', function(e){
+        var btn=e.target.closest('[data-action]');
+        if(btn){
+          var nid=btn.dataset.nid, act=btn.dataset.action;
+          if(act==='dismiss'){ notifItems=notifItems.filter(function(x){ return x.id!==nid; }); }
+          else { notifItems=notifItems.map(function(x){ return x.id===nid?Object.assign({},x,{read:true}):x; }); }
+        } else {
+          notifItems=notifItems.map(function(x){ return x.id===n.id?Object.assign({},x,{read:true}):x; });
+        }
+        updateNotifBadge();
+        renderNotifications();
+      });
+      list.appendChild(card);
+    });
+  }
+
+  // Settings
+  var slist=el('notif-settings'); slist.innerHTML='';
+  notifSettings.forEach(function(s,i){
+    var row=document.createElement('div');
+    row.className='row gap12';
+    row.style.cssText='padding:10px 14px;background:var(--bg2);border:1px solid var(--bdr);border-radius:12px;margin-bottom:6px;';
+    var lockedNote=s.locked?'<div style="font-size:10px;color:var(--red);margin-top:2px;">⚠️ 変更不可（ユーザー保護機能）</div>':'';
+    row.innerHTML='<span style="font-size:18px;flex-shrink:0;">'+s.icon+'</span>'
+      +'<div class="f1"><div style="font-size:13px;font-weight:500;">'+s.label+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);margin-top:1px;">'+s.desc+'</div>'+lockedNote+'</div>'
+      +'<div class="toggle-track" style="background:'+(s.on?'var(--acc)':'rgba(255,255,255,0.1)')+';'+(s.locked?'opacity:0.5;pointer-events:none;':'')+'cursor:'+(s.locked?'not-allowed':'pointer')+';">'
+      +'<div class="toggle-thumb" style="left:'+(s.on?'20px':'2px')+';"></div></div>';
+    if(!s.locked){
+      row.querySelector('.toggle-track').addEventListener('click', function(){
+        notifSettings[i].on=!notifSettings[i].on; renderNotifications();
+      });
+    }
+    slist.appendChild(row);
+  });
+}
+
+function markAllRead() {
+  notifItems=notifItems.map(function(n){ return Object.assign({},n,{read:true}); });
+  updateNotifBadge();
+  renderNotifications();
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+(function init(){
+  initFirebase();
+  el('tabbar').style.display='none';
+  // Clock will start after login
+  // Static time in status bar before login
+  el('sb-clock').textContent=fmtT(new Date());
+})();
+</script>
+</body>
+</html>
