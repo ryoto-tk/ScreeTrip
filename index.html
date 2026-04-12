@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0A0A0F"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-<title>TravelMind</title>
+<title>ScreeTrip — 移動最適化コンシェルジュ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
@@ -381,8 +381,8 @@ a{color:inherit;text-decoration:none;}
     <div class="page active" id="pg-login">
       <div class="login-wrap">
         <div class="login-logo">✈️</div>
-        <div class="login-title">TravelMind</div>
-        <div class="login-sub">スクリーンショットから予約情報を自動読み取り。出発時刻を絶対に逃しません。</div>
+        <div class="login-title">ScreeTrip</div>
+        <div class="login-sub">スクリーンショットを撮るだけ。予約情報を自動読み取りし、出発時刻を絶対に逃しません。</div>
         <button class="google-btn" onclick="doGoogleLogin()">
           <svg width="20" height="20" viewBox="0 0 48 48">
             <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.1l6.7-6.7C35.7 2.3 30.2 0 24 0 14.8 0 7 5.4 3.2 13.3l7.8 6c1.8-5.4 6.9-9.8 13-9.8z"/>
@@ -755,14 +755,16 @@ var alarmInterval = null;
 // OCR result staging
 var ocrStaged = { name:'', addr:'', dt:'', type:'flight' };
 
-// Demo reservations
-var DEMO_RES = [
-  { id:'r1', type:'flight',     emoji:'✈️', name:'JAL 304',          subtitle:'神戸 → 大阪（関西国際空港）', addr:'関西国際空港 T2, 大阪府泉南郡田尻町泉州空港北1', dt: dtPlus(2,0),  color:'#5B8EFF', checklist:['passport','ticket','phone','wallet'] },
-  { id:'r2', type:'hotel',      emoji:'🏨', name:'ホテルグランヴィア大阪', subtitle:'チェックイン 15:00〜',      addr:'大阪市北区梅田3丁目1-1',          dt: dtPlus(5,0),  color:'#00D68F', checklist:['phone','wallet','charger'] },
-  { id:'r3', type:'car',        emoji:'🚗', name:'トヨタレンタカー',      subtitle:'梅田営業所 / 普通車',         addr:'大阪市北区角田町8-1',             dt: dtPlus(7,0),  color:'#FFB547', checklist:['license','phone','wallet'] },
-  { id:'r4', type:'restaurant', emoji:'🍽️', name:'懐石料理 花むら',      subtitle:'ディナー 19:00 / 2名',        addr:'大阪市中央区道頓堀1-7-11',        dt: dtPlus(9,0),  color:'#A78BFA', checklist:['phone','wallet'] },
-  { id:'r5', type:'ferry',      emoji:'⛴️', name:'阪九フェリー（車載）',  subtitle:'神戸→北九州 / 乗用車1台',    addr:'阪九フェリー神戸港ターミナル, 兵庫県神戸市中央区新港町15-1', dt: dtPlus(12,0), color:'#38BDF8', checklist:['vehicle_cert','ferry_ticket','vehicle_ins','license','phone','wallet'], subtitle:'神戸→北九州 / 乗用車1台', ferry:true },
-];
+// Demo reservations — built lazily to avoid NaN date issues at parse time
+function buildDemoRes() {
+  return [
+    { id:'r1', type:'flight',     emoji:'✈️', name:'JAL 304',             subtitle:'神戸 → 大阪（関西国際空港）',  addr:'大阪府泉南郡田尻町泉州空港北1 関西国際空港 第2ターミナル', dt:dtPlus(2,0),  color:'#5B8EFF', checklist:['passport','ticket','phone','wallet'] },
+    { id:'r2', type:'hotel',      emoji:'🏨', name:'ホテルグランヴィア大阪', subtitle:'チェックイン 15:00〜',          addr:'大阪府大阪市北区梅田3丁目1-1',                          dt:dtPlus(5,0),  color:'#00D68F', checklist:['phone','wallet','charger'] },
+    { id:'r3', type:'car',        emoji:'🚗', name:'トヨタレンタカー',       subtitle:'梅田営業所 / 普通車',           addr:'大阪府大阪市北区角田町8-1',                             dt:dtPlus(7,0),  color:'#FFB547', checklist:['license','phone','wallet'] },
+    { id:'r4', type:'restaurant', emoji:'🍽️', name:'懐石料理 花むら',       subtitle:'ディナー 19:00 / 2名',          addr:'大阪府大阪市中央区道頓堀1-7-11',                        dt:dtPlus(9,0),  color:'#A78BFA', checklist:['phone','wallet'] },
+    { id:'r5', type:'ferry',      emoji:'⛴️', name:'阪九フェリー（車載）',   subtitle:'六甲アイランド→北九州 / 乗用車1台', addr:'兵庫県神戸市東灘区向洋町東2丁目 阪九フェリー六甲アイランドターミナル', dt:dtPlus(12,0), color:'#38BDF8', checklist:['vehicle_cert','ferry_ticket','vehicle_ins','license','phone','wallet'], ferry:true },
+  ];
+}
 
 var CHECKLIST_MASTER = {
   passport: { id:'passport', label:'パスポート',              note:'有効期限を必ず確認',     icon:'🛂', priority:'critical' },
@@ -839,8 +841,22 @@ function dtPlus(h, m) {
   d.setHours(d.getHours()+h, d.getMinutes()+(m||0), 0, 0);
   return d;
 }
+// 安全な Date 変換 — Date/string/数値すべて受け付け、無効時は Epoch を返す
+function safeDate(v) {
+  if (!v) return new Date(0);
+  if (v instanceof Date) return isNaN(v.getTime()) ? new Date(0) : v;
+  var d = new Date(v);
+  return isNaN(d.getTime()) ? new Date(0) : d;
+}
+// XSS防止
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 function el(id) { return document.getElementById(id); }
-function fmtT(d) { return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+function fmtT(d) {
+  if (!d || isNaN(d.getTime())) return '--:--';
+  return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+}
 function fmtD(d) {
   var wd = ['日','月','火','水','木','金','土'][d.getDay()];
   return (d.getMonth()+1)+'月'+d.getDate()+'日（'+wd+'）';
@@ -854,7 +870,9 @@ function fmtAgo(d) {
   return Math.floor(s/86400)+'日前';
 }
 function countdown(target) {
-  var s = Math.floor((target.getTime()-Date.now())/1000);
+  var t = (target instanceof Date) ? target : safeDate(target);
+  if (isNaN(t.getTime()) || t.getTime()===0) return { label:'--', urgent:false, secs:0, overdue:false };
+  var s = Math.floor((t.getTime()-Date.now())/1000);
   if (s<=0) return { label:'時間切れ', urgent:true, secs:0, overdue:true };
   var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
   var label = h>0 ? h+'h '+m+'m' : m>0 ? m+'分 '+sec+'秒' : sec+'秒';
@@ -930,7 +948,7 @@ function doGoogleLogin() {
 function doDemo() {
   IS_DEMO = true;
   currentUser = { uid:'demo', displayName:'デモユーザー', email:'demo@example.com', photoURL:null };
-  reservations = DEMO_RES.slice();
+  reservations = buildDemoRes(); // 呼び出し時点でDate()を生成 → NaN回避
   onLoggedIn(currentUser);
 }
 
@@ -959,8 +977,10 @@ function onLoggedIn(user) {
   addDemoNotifications();
   showPage('pg-schedule');
   startClock();
+  // updateSchedule は startClock → clockTick → updateCountdownBanner で
+  // 自動的に呼ばれるので、ここで明示的に1回だけ実行
   updateSchedule();
-  if (IS_DEMO) setTimeout(triggerDemoBanners, 800);
+  if (IS_DEMO) setTimeout(triggerDemoBanners, 1200);
 }
 
 // ══════════════════════════════════════════════
@@ -1020,11 +1040,11 @@ function updateCountdownBanner() {
     el('sch-countdown-card').style.display='none';
     return;
   }
-  var next = reservations.slice().sort(function(a,b){ return new Date(a.dt)-new Date(b.dt); })
-    .find(function(r){ return new Date(r.dt).getTime()>Date.now()-60000; });
+  var next = reservations.slice().sort(function(a,b){ return safeDate(a.dt)-safeDate(b.dt); })
+    .find(function(r){ return safeDate(r.dt).getTime()>Date.now()-60000; });
   if (!next) { el('sch-countdown-card').style.display='none'; return; }
   el('sch-countdown-card').style.display='block';
-  var cd = countdown(new Date(next.dt));
+  var cd = countdown(safeDate(next.dt));
   var ti = getTypeInfo(next.type);
   el('sch-cd-emoji').textContent = next.emoji||ti.emoji;
   el('sch-cd-val').textContent = cd.label;
@@ -1054,8 +1074,8 @@ function updateCountdownBanner() {
 // ══════════════════════════════════════════════
 function checkAlarms() {
   reservations.forEach(function(res) {
-    var dt = new Date(res.dt);
-    var secs = Math.floor((dt.getTime()-Date.now())/1000);
+    var dt = safeDate(res.dt);
+    var secs = isNaN(dt.getTime()) ? 99999 : Math.floor((dt.getTime()-Date.now())/1000);
     // Fire alarm when overdue (secs <= 0) and not already fired
     if (secs <= 0 && !alarmFired[res.id]) {
       alarmFired[res.id] = true;
@@ -1133,37 +1153,47 @@ function dismissAlarm() {
 // ══════════════════════════════════════════════
 // SCHEDULE RENDER
 // ══════════════════════════════════════════════
+var _scheduleRendering = false;
 function updateSchedule() {
-  var sorted = reservations.slice().sort(function(a,b){ return new Date(a.dt)-new Date(b.dt); });
+  // ガード: 同一フレーム内の二重呼び出しを防ぐ
+  if (_scheduleRendering) return;
+  _scheduleRendering = true;
+  requestAnimationFrame(function() { _scheduleRendering = false; });
+
+  var sorted = reservations.slice().sort(function(a,b){
+    return safeDate(a.dt) - safeDate(b.dt);
+  });
   var list = el('sch-list');
-  list.innerHTML='';
-  if (sorted.length===0) {
-    el('sch-empty').style.display='flex';
-    el('sch-countdown-card').style.display='none';
+  list.innerHTML = '';
+  if (sorted.length === 0) {
+    el('sch-empty').style.display = 'flex';
+    el('sch-countdown-card').style.display = 'none';
     return;
   }
-  el('sch-empty').style.display='none';
-  sorted.forEach(function(res, i) {
-    var cd = countdown(new Date(res.dt));
+  el('sch-empty').style.display = 'none';
+  sorted.forEach(function(res) {
+    var dt = safeDate(res.dt);
+    if (isNaN(dt.getTime())) return; // 無効な日付はスキップ
+    var cd = countdown(dt);
     var ti = getTypeInfo(res.type);
-    var emoji = res.emoji||ti.emoji;
-    var color = res.color||ti.color;
+    var emoji = res.emoji || ti.emoji;
+    var color = res.color || ti.color;
     var card = document.createElement('button');
-    card.className='res-card'+(cd.urgent?' urgent':'');
-    card.style.fontFamily='var(--font)';
+    card.className = 'res-card' + (cd.urgent ? ' urgent' : '');
+    card.style.fontFamily = 'var(--font)';
     var strip = cd.urgent ? '<div class="res-top-strip"></div>' : '';
     card.innerHTML = strip
-      +'<div class="res-ico" style="background:'+(cd.urgent?'rgba(255,77,106,0.15)':color+'18')+'">'+emoji+'</div>'
-      +'<div class="f1">'
-      +'<div class="res-title trunc">'+res.name+'</div>'
-      +'<div class="res-sub trunc">'+(res.subtitle||res.addr||'')+'</div>'
-      +'</div>'
-      +'<div>'
-      +'<div class="res-time">'+fmtT(new Date(res.dt))+'</div>'
-      +'<div class="res-cd" style="color:'+(cd.urgent?'var(--red)':'var(--grn)')+'">'+cd.label+'</div>'
-      +'</div>'
-      +'<div class="res-dot" style="background:'+(cd.urgent?'var(--red)':color)+'"></div>';
-    card.addEventListener('click', function(){ openDetail(res); });
+      + '<div class="res-ico" style="background:' + (cd.urgent ? 'rgba(255,77,106,0.15)' : color + '18') + '">' + emoji + '</div>'
+      + '<div class="f1">'
+      + '<div class="res-title trunc">' + escHtml(res.name) + '</div>'
+      + '<div class="res-sub trunc">' + escHtml(res.subtitle || res.addr || '') + '</div>'
+      + '</div>'
+      + '<div>'
+      + '<div class="res-time">' + fmtT(dt) + '</div>'
+      + '<div class="res-cd" style="color:' + (cd.urgent ? 'var(--red)' : 'var(--grn)') + '">' + cd.label + '</div>'
+      + '</div>'
+      + '<div class="res-dot" style="background:' + (cd.urgent ? 'var(--red)' : color) + '"></div>';
+    card.addEventListener('click', (function(r){ return function(){ openDetail(r); }; })(res));
     list.appendChild(card);
   });
 }
@@ -1190,8 +1220,8 @@ function openDetail(res) {
   el('dh-emoji').textContent=emoji;
   el('dh-name').textContent=res.name||'---';
   el('dh-sub').textContent=res.subtitle||res.addr||'';
-  el('dh-dt').textContent=fmtDT(new Date(res.dt));
-  var cd=countdown(new Date(res.dt));
+  el('dh-dt').textContent=fmtDT(safeDate(res.dt));
+  var cd=countdown(safeDate(res.dt));
   el('dh-cd').textContent=cd.label;
   el('dh-cd').style.color=cd.urgent?'var(--red)':color;
   el('dh-addr').textContent=res.addr||'住所未設定';
@@ -1345,27 +1375,92 @@ function handleOcrFile(input) {
   input.value='';
 }
 
-// Simulated OCR (real implementation uses Apple Vision via WKWebView bridge)
-// In production: WKScriptMessageHandler calls VNRecognizeTextRequest and posts result back
-function simulateOCR(dataUrl) {
-  setTimeout(function() {
-    // Simulate extraction
-    var fakeResults = [
-      { name:'関西国際空港', addr:'大阪府泉南郡田尻町泉州空港北1', dt:'2026-04-12 14:30', type:'flight', raw:'JAL304 大阪行き\n関西国際空港 T2\n2026年4月12日 14:30\n搭乗口 23A\n予約番号 JL-8842' },
-    ];
-    var res = fakeResults[0];
-    ocrStaged = { name:res.name, addr:res.addr, dt:res.dt, type:res.type };
+// ── 施設名 → 正確住所 補完DB ──
+var FACILITY_DB = [
+  {keys:['阪九フェリー','六甲アイランド'],    name:'阪九フェリー 六甲アイランドターミナル', addr:'兵庫県神戸市東灘区向洋町東2丁目2-6', type:'ferry'},
+  {keys:['阪九フェリー','泉大津'],            name:'阪九フェリー 泉大津ターミナル',         addr:'大阪府泉大津市なぎさ町2-8',          type:'ferry'},
+  {keys:['新日本海フェリー','敦賀'],           name:'新日本海フェリー 敦賀ターミナル',        addr:'福井県敦賀市鉄輪町1丁目4-1',         type:'ferry'},
+  {keys:['名門大洋フェリー'],                 name:'名門大洋フェリー 大阪南港ターミナル',    addr:'大阪府大阪市住之江区南港北1丁目29-19',type:'ferry'},
+  {keys:['ジャンボフェリー','神戸'],           name:'ジャンボフェリー 神戸ポートターミナル', addr:'兵庫県神戸市中央区新港町15-1',        type:'ferry'},
+  {keys:['関西国際空港'],                     name:'関西国際空港',                          addr:'大阪府泉南郡田尻町泉州空港北1',       type:'flight'},
+  {keys:['伊丹空港','大阪空港'],               name:'大阪国際空港（伊丹）',                  addr:'大阪府豊中市螢池西町3丁目555',        type:'flight'},
+  {keys:['神戸空港','マリンエア'],             name:'神戸空港',                              addr:'兵庫県神戸市中央区空港島11',          type:'flight'},
+  {keys:['羽田空港'],                         name:'東京国際空港（羽田）',                  addr:'東京都大田区羽田空港3丁目3-2',        type:'flight'},
+  {keys:['成田国際空港','成田空港'],           name:'成田国際空港',                          addr:'千葉県成田市古込字古込1-1',           type:'flight'},
+  {keys:['中部国際空港','セントレア'],          name:'中部国際空港（セントレア）',            addr:'愛知県常滑市セントレア1丁目1',        type:'flight'},
+  {keys:['福岡空港'],                         name:'福岡空港',                              addr:'福岡県福岡市博多区大字下臼井778-1',   type:'flight'},
+  {keys:['那覇空港'],                         name:'那覇空港',                              addr:'沖縄県那覇市字鏡水150',               type:'flight'},
+  {keys:['新大阪駅'],                         name:'新大阪駅',                              addr:'大阪府大阪市淀川区西中島5丁目16-1',  type:'train'},
+  {keys:['東京駅'],                           name:'東京駅',                                addr:'東京都千代田区丸の内1丁目9-1',       type:'train'},
+  {keys:['新神戸駅'],                         name:'新神戸駅',                              addr:'兵庫県神戸市中央区加納町1丁目3-1',   type:'train'},
+  {keys:['グランヴィア大阪'],                  name:'ホテルグランヴィア大阪',                addr:'大阪府大阪市北区梅田3丁目1-1',       type:'hotel'},
+  {keys:['帝国ホテル東京'],                   name:'帝国ホテル東京',                        addr:'東京都千代田区内幸町1丁目1-1',       type:'hotel'},
+];
 
+function parseDateTime(text) {
+  var p1 = text.match(/(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})[日]?\s*(\d{1,2})[時:：](\d{2})/);
+  var p2 = text.match(/(\d{1,2})[\/](\d{1,2})\s+(\d{1,2})[:\：](\d{2})/);
+  var p3 = text.match(/(\d{1,2})[:\：](\d{2})/);
+  var now = new Date(), d;
+  try {
+    if (p1) { d = new Date(+p1[1], +p1[2]-1, +p1[3], +p1[4], +p1[5]); }
+    else if (p2) { d = new Date(now.getFullYear(), +p2[1]-1, +p2[2], +p2[3], +p2[4]); if(d<now) d.setFullYear(d.getFullYear()+1); }
+    else if (p3) { d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), +p3[1], +p3[2]); if(d<now) d.setDate(d.getDate()+1); }
+    if (d && !isNaN(d.getTime())) {
+      return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+    }
+  } catch(e){}
+  return '';
+}
+
+function detectType(text) {
+  var t = text.toLowerCase();
+  if (/フライト|航空|flight|airline|jal|ana|lcc/.test(t)) return 'flight';
+  if (/フェリー|ferry|乗船|car ferry/.test(t)) return 'ferry';
+  if (/ホテル|hotel|旅館|チェックイン/.test(t)) return 'hotel';
+  if (/レンタカー|rent.?a.?car|rental/.test(t)) return 'car';
+  if (/レストラン|ディナー|ランチ|restaurant/.test(t)) return 'restaurant';
+  if (/新幹線|電車|列車|指定席|号車|train/.test(t)) return 'train';
+  return 'other';
+}
+
+function lookupFacility(text) {
+  for (var i=0; i<FACILITY_DB.length; i++) {
+    var fac = FACILITY_DB[i];
+    var hit = fac.keys.some(function(k){ return k.length>=3 && text.indexOf(k)>=0; });
+    if (hit) return fac;
+  }
+  return null;
+}
+
+function extractAddr(text) {
+  var m = text.match(/(北海道|青森|岩手|宮城|秋田|山形|福島|茨城|栃木|群馬|埼玉|千葉|東京|神奈川|新潟|富山|石川|福井|山梨|長野|岐阜|静岡|愛知|三重|滋賀|京都|大阪|兵庫|奈良|和歌山|鳥取|島根|岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|長崎|熊本|大分|宮崎|鹿児島|沖縄)[都道府県]?[\u30A1-\u30FF\u3041-\u309F\u4E00-\u9FFF\d\-ー]+/);
+  return m ? m[0] : '';
+}
+
+// OCR本体 (実機: Apple Vision VNRecognizeTextRequest の結果をここに渡す)
+function simulateOCR(dataUrl) {
+  el('ocr-status-lbl').textContent = '\uD83D\uDD0D テキスト検出中...';
+  setTimeout(function(){ el('ocr-status-lbl').textContent = '\uD83E\uDDE0 住所・日時を解析中...'; }, 700);
+  setTimeout(function() {
+    // デモ用テキスト (実機ではVision OCR結果)
+    var raw = 'JAL304 神戸→関西国際空港\n2026年4月13日 09:30\n搭乗口 23A / T2\n予約番号 JL-20264130\n大人1名 / エコノミー';
+    var fac = lookupFacility(raw);
+    var name = fac ? fac.name : raw.split('\n')[0].trim().slice(0,30);
+    var addr = fac ? fac.addr : extractAddr(raw);
+    var type = fac ? fac.type : detectType(raw);
+    var dtStr = parseDateTime(raw);
+    ocrStaged = {name:name, addr:addr, dt:dtStr, type:type};
     el('scan-line').style.display='none';
-    el('ocr-status-lbl').textContent='✅ 解析完了';
+    el('ocr-status-lbl').textContent='\u2705 解析完了 — 内容を確認して保存';
     el('ocr-status-lbl').style.color='var(--grn)';
     el('ocr-result-card').style.display='block';
     el('ocr-extracted-text').style.display='block';
-    el('ocr-name').value=res.name;
-    el('ocr-addr').value=res.addr;
-    el('ocr-dt').value=res.dt;
-    el('ocr-raw-text').textContent=res.raw;
-    renderOcrTypeBtns(res.type);
+    el('ocr-name').value=name;
+    el('ocr-addr').value=addr;
+    el('ocr-dt').value=dtStr;
+    el('ocr-raw-text').textContent=raw;
+    renderOcrTypeBtns(type);
   }, 2200);
 }
 
@@ -1396,9 +1491,10 @@ function saveOcrResult() {
   var dtStr=el('ocr-dt').value.trim();
   var type=ocrStaged.type||'other';
   if (!name&&!addr) { showToast('目的地名または住所を入力してください'); return; }
-  var dt;
-  try { dt=dtStr?new Date(dtStr.replace(/[年月日]/g,'-').replace(/[\s時]/g,':').replace(/分/,'')):new Date(); }
-  catch(e) { dt=new Date(); }
+  var dt = dtStr ? safeDate(dtStr
+    .replace(/年/g,'-').replace(/月/g,'-').replace(/日/g,' ')
+    .replace(/時/g,':').replace(/分/g,'').trim()) : new Date();
+  if (!dt || isNaN(dt.getTime()) || dt.getTime()===0) dt = new Date();
   var ti=getTypeInfo(type);
   var newRes={
     id:uid(), type:type, emoji:ti.emoji, name:name,
@@ -1545,7 +1641,7 @@ function renderChecklist() {
   if (clActiveIdx>=reservations.length) clActiveIdx=0;
   var res=reservations[clActiveIdx];
   var items=(res.checklist||[]).map(function(id){ return CHECKLIST_MASTER[id]; }).filter(Boolean);
-  el('cl-res-lbl').textContent=res.name+' — '+fmtT(new Date(res.dt));
+  el('cl-res-lbl').textContent=res.name+' — '+fmtT(safeDate(res.dt));
   var checked=items.filter(function(it){ return clChecked[clKey(res.id,it.id)]; }).length;
   var total=items.length;
   var pct=total>0?Math.round(checked/total*100):0;
