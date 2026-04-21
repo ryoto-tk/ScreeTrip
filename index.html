@@ -11,6 +11,22 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 
+<!-- MapKit JS (Apple Maps) -->
+<script
+  src="https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js"
+  crossorigin
+  async
+  data-callback="initMapKitCallback"
+  data-initial-token="eyJhbGciOiJFUzI1NiIsImtpZCI6Ik01UTc5UDZUNzMiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJRVzNYUzIzQzhDIiwiaWF0IjoxNzc2Nzg2OTM3LCJleHAiOjE3OTIzMzg5MzcsIm9yaWdpbiI6Imh0dHBzOi8vc2NyZWV0cmlwLnZlcmNlbC5hcHAifQ.61CR3qqiBX7_eBXQgFcV3kYiRcrAQr7LalqfiSGucw7N8HU_YGXjJNy5CSJOWgmoCfPpvZ6vQ40eix2-yMo5Mg"
+></script>
+<script>
+// MapKit JS がロード完了したら呼ばれるコールバック
+function initMapKitCallback() {
+  window._mapKitReady = true;
+  if (window._mapKitPendingInit) window._mapKitPendingInit();
+}
+</script>
+
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -373,6 +389,292 @@ a{color:inherit;text-decoration:none;}
 .fi4{animation-delay:0.2s;} .fi5{animation-delay:0.25s;}
 @keyframes pulse-ring{0%{transform:scale(1);opacity:0.5;}100%{transform:scale(2.2);opacity:0;}}
 @keyframes dash-anim{to{stroke-dashoffset:-18;}}
+
+/* ── MAP PAGE ── */
+#pg-map{}
+#mapkit-container{
+  flex:1;position:relative;overflow:hidden;
+  /* MapKit JS がここにcanvasを描画する */
+}
+/* MapKit JS のデフォルトUIをダークテーマに合わせる */
+.mk-map-view { background:#0e1520 !important; }
+.map-search-bar{
+  position:absolute;top:12px;left:12px;right:12px;z-index:100;
+  display:flex;gap:8px;align-items:center;
+}
+.map-search-input{
+  flex:1;height:40px;padding:0 14px;
+  background:rgba(13,13,22,0.92);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--bdr2);border-radius:12px;
+  font-size:14px;color:var(--t1);font-family:var(--font);
+  outline:none;
+}
+.map-search-input::placeholder{color:var(--t3);}
+.map-search-input:focus{border-color:rgba(91,142,255,0.5);}
+.map-search-btn{
+  width:40px;height:40px;border-radius:12px;flex-shrink:0;
+  background:rgba(91,142,255,0.85);border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:17px;
+  transition:transform 0.1s;
+}
+.map-search-btn:active{transform:scale(0.95);}
+.map-pin-card{
+  position:absolute;bottom:0;left:0;right:0;z-index:100;
+  background:var(--bg2);
+  border-top:1px solid var(--bdr);
+  border-radius:20px 20px 0 0;
+  padding:14px 16px 24px;
+  transform:translateY(100%);
+  transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.map-pin-card.open{transform:translateY(0);}
+.map-pin-handle{width:36px;height:4px;border-radius:2px;background:var(--bdr2);margin:0 auto 12px;}
+.map-fallback{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:10px;padding:32px 24px;text-align:center;
+}
+.map-token-input{
+  width:100%;padding:10px 12px;background:var(--bg3);
+  border:1px solid var(--bdr2);border-radius:10px;
+  font-size:12px;color:var(--t1);font-family:var(--mono);outline:none;
+  margin-top:6px;
+}
+.map-route-bar{
+  position:absolute;bottom:calc(0px);left:0;right:0;
+  background:rgba(13,13,22,0.94);backdrop-filter:blur(20px);
+  border-top:1px solid var(--bdr);padding:10px 14px;
+  display:flex;align-items:center;gap:10px;z-index:99;
+}
+.map-annotation-callout{
+  background:var(--bg2);border:1px solid var(--bdr2);
+  border-radius:12px;padding:8px 12px;min-width:160px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+.map-dest-chip{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:20px;
+  background:rgba(91,142,255,0.12);border:1px solid rgba(91,142,255,0.25);
+  font-size:11px;color:var(--acc);cursor:pointer;flex-shrink:0;
+}
+
+
+/* ── JET LAG PAGE ── */
+#pg-jetlag{}
+.jl-hero{
+  margin:0 16px 14px;border-radius:18px;padding:18px;
+  background:linear-gradient(135deg,rgba(30,20,60,0.9),rgba(15,25,50,0.95));
+  border:1px solid rgba(91,142,255,0.2);position:relative;overflow:hidden;
+}
+.jl-hero::before{
+  content:'';position:absolute;top:-40px;right:-40px;
+  width:120px;height:120px;border-radius:50%;
+  background:radial-gradient(circle,rgba(91,142,255,0.15),transparent 70%);
+}
+.jl-phase-bar{
+  display:flex;gap:3px;margin:10px 0;height:8px;border-radius:4px;overflow:hidden;
+}
+.jl-phase-seg{height:100%;border-radius:2px;transition:width 0.4s ease;}
+.jl-schedule-day{
+  margin:0 16px 10px;background:var(--bg2);
+  border:1px solid var(--bdr);border-radius:14px;overflow:hidden;
+}
+.jl-day-header{
+  padding:10px 14px;display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--bdr);
+  background:rgba(255,255,255,0.02);
+}
+.jl-day-badge{
+  width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;flex-shrink:0;
+}
+.jl-event{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 14px;border-bottom:1px solid var(--bdr);
+  position:relative;
+}
+.jl-event:last-child{border-bottom:none;}
+.jl-event-time{
+  font-size:12px;font-weight:600;font-family:var(--mono);
+  color:var(--t2);width:42px;flex-shrink:0;padding-top:1px;
+}
+.jl-event-dot{
+  width:10px;height:10px;border-radius:50%;
+  flex-shrink:0;margin-top:3px;
+}
+.jl-event-body{flex:1;}
+.jl-event-label{font-size:13px;font-weight:600;}
+.jl-event-note{font-size:11px;color:var(--t3);margin-top:2px;line-height:1.4;}
+.jl-event-tag{
+  font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;
+  margin-top:4px;display:inline-block;
+}
+.jl-alarm-btn{
+  display:flex;align-items:center;gap:6px;margin-top:6px;
+  padding:5px 10px;border-radius:8px;
+  font-size:11px;font-weight:600;cursor:pointer;
+  font-family:var(--font);border:1px solid;
+  transition:transform 0.1s;
+}
+.jl-alarm-btn:active{transform:scale(0.97);}
+.melatonin-card{
+  margin:0 16px 10px;padding:13px 14px;border-radius:14px;
+  background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);
+}
+.light-card{
+  margin:0 16px 10px;padding:13px 14px;border-radius:14px;
+  background:rgba(255,181,71,0.08);border:1px solid rgba(255,181,71,0.2);
+}
+.caffeine-card{
+  margin:0 16px 10px;padding:13px 14px;border-radius:14px;
+  background:rgba(180,120,60,0.1);border:1px solid rgba(180,120,60,0.2);
+}
+.jl-pill{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;
+}
+/* 体内時計アニメーション */
+.body-clock{
+  width:80px;height:80px;border-radius:50%;
+  background:conic-gradient(
+    rgba(91,142,255,0.3) 0deg,
+    rgba(30,15,60,0.8) 120deg,
+    rgba(91,142,255,0.15) 240deg,
+    rgba(91,142,255,0.3) 360deg
+  );
+  display:flex;align-items:center;justify-content:center;
+  position:relative;flex-shrink:0;
+}
+.clock-hand{
+  position:absolute;width:2px;height:28px;border-radius:1px;
+  background:var(--acc);transform-origin:bottom center;
+  top:calc(50% - 28px);left:calc(50% - 1px);
+}
+.clock-hand-m{
+  position:absolute;width:1.5px;height:20px;border-radius:1px;
+  background:var(--acc2);transform-origin:bottom center;
+  top:calc(50% - 20px);left:calc(50% - 0.75px);
+}
+@keyframes clock-rotate{to{transform:rotate(360deg);}}
+
+
+/* ── PRO UPGRADE MODAL ── */
+#pro-modal{
+  position:absolute;inset:0;z-index:900;
+  background:rgba(0,0,0,0.75);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  display:none;align-items:flex-end;justify-content:center;
+}
+#pro-modal.on{display:flex;}
+.pro-sheet{
+  width:100%;background:var(--bg2);border-radius:28px 28px 0 0;
+  padding:0 20px 40px;max-height:90%;overflow-y:auto;
+}
+.pro-handle{width:40px;height:4px;border-radius:2px;background:var(--bdr2);margin:12px auto 20px;}
+.pro-badge{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#FFB547,#FF8C00);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:0.5px;margin-bottom:12px;}
+.pro-title{font-size:24px;font-weight:700;letter-spacing:-0.5px;margin-bottom:6px;}
+.pro-sub{font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:20px;}
+.pro-feature-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr);}
+.pro-feature-row:last-of-type{border-bottom:none;}
+.pro-feature-ico{font-size:20px;width:28px;text-align:center;flex-shrink:0;}
+.pro-plan-wrap{display:flex;gap:8px;margin:18px 0;}
+.pro-plan{
+  flex:1;padding:14px 10px;border-radius:14px;border:2px solid var(--bdr);
+  background:var(--bg3);cursor:pointer;text-align:center;transition:all 0.18s;
+}
+.pro-plan.selected{border-color:var(--acc);background:rgba(91,142,255,0.1);}
+.pro-plan-label{font-size:10px;color:var(--t3);margin-bottom:4px;}
+.pro-plan-price{font-size:18px;font-weight:700;font-family:var(--mono);}
+.pro-plan-per{font-size:10px;color:var(--t2);margin-top:2px;}
+.pro-plan-badge{font-size:9px;font-weight:700;color:#FF8C00;background:rgba(255,140,0,0.15);padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block;}
+.pro-cta{
+  width:100%;padding:16px;border-radius:16px;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  font-family:var(--font);font-size:16px;font-weight:700;color:#fff;
+  border:none;cursor:pointer;margin-top:4px;
+  transition:transform 0.12s,opacity 0.12s;
+}
+.pro-cta:active{transform:scale(0.98);opacity:0.9;}
+.pro-restore{font-size:11px;color:var(--t3);text-align:center;margin-top:10px;cursor:pointer;width:100%;padding:4px;}
+.pro-limit-banner{
+  margin:0 16px 10px;padding:10px 14px;
+  background:rgba(255,140,0,0.1);border:1px solid rgba(255,140,0,0.3);
+  border-radius:12px;display:flex;align-items:center;gap:10px;cursor:pointer;
+}
+
+/* ── GROUP PAGE ── */
+#pg-group{}
+.grp-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:14px;margin-bottom:10px;}
+.grp-member{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bdr);}
+.grp-member:last-child{border-bottom:none;}
+.grp-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;flex-shrink:0;}
+.grp-role{font-size:10px;font-weight:600;padding:2px 7px;border-radius:5px;}
+/* ── EXPENSE SECTION ── */
+.expense-item{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--bdr);}
+.expense-item:last-child{border-bottom:none;}
+.expense-cat{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.settle-row{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg3);border-radius:10px;margin-bottom:6px;}
+.settle-arrow{font-size:14px;color:var(--t3);}
+
+/* ── WALLET / BOARDING PASS ── */
+#pg-wallet{}
+.bp-card{
+  margin:0 16px 12px;border-radius:20px;overflow:hidden;
+  background:linear-gradient(135deg,#1a2a6c,#b21f1f,#fdbb2d);
+  position:relative;cursor:pointer;
+}
+.bp-inner{padding:20px;}
+.bp-airline{font-size:11px;font-weight:600;letter-spacing:1px;color:rgba(255,255,255,0.7);margin-bottom:4px;}
+.bp-route{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.bp-iata{font-size:32px;font-weight:700;letter-spacing:-1px;}
+.bp-arrow{font-size:16px;color:rgba(255,255,255,0.6);}
+.bp-details{display:flex;gap:16px;flex-wrap:wrap;}
+.bp-field{flex:1;}
+.bp-field-lbl{font-size:9px;color:rgba(255,255,255,0.6);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:2px;}
+.bp-field-val{font-size:13px;font-weight:600;}
+.bp-divider{height:1px;background:rgba(255,255,255,0.2);margin:14px 0;position:relative;}
+.bp-divider::before,.bp-divider::after{content:'';position:absolute;top:-8px;width:16px;height:16px;border-radius:50%;background:var(--bg1);}
+.bp-divider::before{left:-24px;} .bp-divider::after{right:-24px;}
+.bp-barcode{display:flex;justify-content:center;padding:10px 0 4px;}
+.bp-bar{height:40px;display:flex;align-items:flex-end;gap:1px;}
+.bp-bar span{background:rgba(255,255,255,0.9);border-radius:1px;}
+.bp-add-wallet{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:calc(100% - 32px);margin:0 16px 12px;
+  padding:12px;border-radius:14px;
+  background:#000;color:#fff;font-family:var(--font);font-size:14px;font-weight:600;
+  border:none;cursor:pointer;
+}
+
+/* ── WIDGET PREVIEW (ロック画面) ── */
+.widget-preview{
+  margin:0 16px 12px;border-radius:16px;overflow:hidden;
+  background:rgba(255,255,255,0.08);border:1px solid var(--bdr);
+}
+.widget-preview-title{font-size:11px;font-weight:600;color:var(--t3);padding:10px 14px 6px;letter-spacing:0.5px;}
+.widget-sm{
+  margin:0 14px 10px;padding:10px 12px;border-radius:12px;
+  background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);
+  display:flex;align-items:center;gap:8px;
+}
+.widget-lg{
+  margin:0 14px 14px;padding:14px;border-radius:16px;
+  background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);
+}
+
+/* ── SIRI CARD ── */
+.siri-demo{
+  margin:0 16px 12px;padding:14px;border-radius:14px;
+  background:linear-gradient(135deg,rgba(91,142,255,0.15),rgba(167,139,250,0.1));
+  border:1px solid rgba(91,142,255,0.25);
+}
+
+/* ── PUSH NOTIF CARD ── */
+.push-preview{
+  margin:0 16px 12px;padding:12px 14px;border-radius:14px;
+  background:rgba(255,255,255,0.06);border:1px solid var(--bdr);
+}
+
 </style>
 </head>
 <body>
@@ -431,7 +733,10 @@ a{color:inherit;text-decoration:none;}
             <div style="font-size:11px;color:var(--t3);" id="sch-date">--月--日</div>
           </div>
         </div>
-        <button class="add-btn" onclick="showPage('pg-ocr')" title="スクリーンショットを解析">+</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button onclick="showTab('pg-group')" style="padding:6px 10px;border-radius:10px;background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);font-size:12px;font-weight:600;color:var(--acc2);cursor:pointer;font-family:var(--font);">👥</button>
+          <button class="add-btn" onclick="showPage('pg-ocr')" title="スクリーンショットを解析">+</button>
+        </div>
       </div>
 
       <!-- Urgent banner -->
@@ -472,6 +777,14 @@ a{color:inherit;text-decoration:none;}
       </div>
 
       <div class="pscroll" style="padding:0 16px 16px;">
+        <div id="pro-limit-banner" style="display:none;" class="pro-limit-banner" onclick="openProModal()">
+          <span style="font-size:18px;">⭐</span>
+          <div class="f1">
+            <div style="font-size:12px;font-weight:600;color:#FF8C00;">無料版の制限に達しました（3件）</div>
+            <div style="font-size:11px;color:var(--t2);">Proにアップグレードして無制限に</div>
+          </div>
+          <span style="font-size:12px;color:#FF8C00;">›</span>
+        </div>
         <div class="sec-lbl">本日の予約</div>
         <div id="sch-list"></div>
         <div id="sch-empty" class="empty-state" style="display:none;">
@@ -682,25 +995,484 @@ a{color:inherit;text-decoration:none;}
       </div>
     </div>
 
+
+    <!-- ══ PRO UPGRADE MODAL ══ -->
+    <div id="pro-modal">
+      <div class="pro-sheet">
+        <div class="pro-handle"></div>
+        <div class="pro-badge">⭐ PRO</div>
+        <div class="pro-title">ScreeTrip Pro</div>
+        <div class="pro-sub">旅行の全てを、もっとスマートに。制限なしで全機能を解放します。</div>
+        <div class="pro-feature-row"><div class="pro-feature-ico">📋</div><div><div style="font-size:13px;font-weight:600;">予約登録 無制限</div><div style="font-size:11px;color:var(--t2);">無料版は3件まで</div></div></div>
+        <div class="pro-feature-row"><div class="pro-feature-ico">👥</div><div><div style="font-size:13px;font-weight:600;">グループ旅行共有</div><div style="font-size:11px;color:var(--t2);">旅費精算・割り勘も完結</div></div></div>
+        <div class="pro-feature-row"><div class="pro-feature-ico">🔒</div><div><div style="font-size:13px;font-weight:600;">ロック画面ウィジェット</div><div style="font-size:11px;color:var(--t2);">カウントダウン常時表示</div></div></div>
+        <div class="pro-feature-row"><div class="pro-feature-ico">🎙️</div><div><div style="font-size:13px;font-weight:600;">Siriショートカット</div><div style="font-size:11px;color:var(--t2);">「次の出発は？」で即答</div></div></div>
+        <div class="pro-feature-row"><div class="pro-feature-ico">💳</div><div><div style="font-size:13px;font-weight:600;">Walletに搭乗券を追加</div><div style="font-size:11px;color:var(--t2);">Apple Walletへ直接エクスポート</div></div></div>
+        <div class="pro-feature-row"><div class="pro-feature-ico">✉️</div><div><div style="font-size:13px;font-weight:600;">メール自動解析（Beta）</div><div style="font-size:11px;color:var(--t2);">予約メールを転送するだけ</div></div></div>
+        <div class="pro-plan-wrap">
+          <div class="pro-plan selected" id="plan-monthly" onclick="selectPlan('monthly')">
+            <div class="pro-plan-label">月額</div>
+            <div class="pro-plan-price">¥480</div>
+            <div class="pro-plan-per">/月</div>
+          </div>
+          <div class="pro-plan" id="plan-yearly" onclick="selectPlan('yearly')">
+            <div class="pro-plan-label">年額</div>
+            <div class="pro-plan-price">¥3,800</div>
+            <div class="pro-plan-per">/年</div>
+            <div class="pro-plan-badge">34%オフ</div>
+          </div>
+        </div>
+        <button class="pro-cta" onclick="purchasePro()">今すぐ始める — 3日間無料</button>
+        <button class="pro-restore" onclick="restorePurchase()">購入を復元する</button>
+        <div style="font-size:10px;color:var(--t3);text-align:center;margin-top:12px;line-height:1.5;">
+          Apple IDに請求されます。無料トライアル終了後に自動更新。<br>
+          いつでもSettings→Apple ID→サブスクリプションから解約可能。
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ GROUP PAGE ══ -->
+    <div class="page" id="pg-group">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0;flex-shrink:0;">
+        <button onclick="goBack()" style="font-size:14px;color:var(--acc);padding:6px 10px;border-radius:8px;border:1px solid rgba(91,142,255,0.3);background:rgba(91,142,255,0.08);">‹ 戻る</button>
+        <div style="font-size:16px;font-weight:600;margin-left:4px;">グループ旅行</div>
+      </div>
+      <div class="pscroll" style="padding:12px 16px 20px;">
+
+        <!-- グループ作成/参加 -->
+        <div id="grp-no-group">
+          <div style="padding:28px 0;text-align:center;">
+            <div style="font-size:40px;margin-bottom:12px;">👥</div>
+            <div style="font-size:16px;font-weight:600;margin-bottom:6px;">グループ旅行を始める</div>
+            <div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:24px;">メンバーと予定・チェックリスト・<br>旅費を共有できます</div>
+            <button onclick="createGroup()" class="btn-primary" style="background:linear-gradient(135deg,var(--acc),var(--acc2));margin-bottom:10px;">+ 新しいグループを作成</button>
+            <button onclick="joinGroup()" class="btn-sec" style="width:100%;">招待コードで参加</button>
+          </div>
+        </div>
+
+        <!-- グループ詳細 -->
+        <div id="grp-detail" style="display:none;">
+          <!-- メンバー -->
+          <div class="grp-card">
+            <div class="sec-lbl">メンバー</div>
+            <div id="grp-member-list"></div>
+            <button onclick="inviteMember()" style="width:100%;margin-top:10px;padding:8px;border-radius:10px;border:1px dashed var(--bdr2);background:transparent;font-size:13px;color:var(--acc);cursor:pointer;font-family:var(--font);">
+              + メンバーを招待
+            </button>
+          </div>
+
+          <!-- 旅費精算 -->
+          <div class="grp-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+              <div class="sec-lbl" style="margin-bottom:0;">旅費・精算</div>
+              <button onclick="addExpense()" style="font-size:12px;color:var(--acc);padding:4px 10px;border-radius:8px;border:1px solid rgba(91,142,255,0.3);background:rgba(91,142,255,0.08);cursor:pointer;font-family:var(--font);">+ 追加</button>
+            </div>
+            <!-- 合計サマリー -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <div style="flex:1;background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+                <div style="font-size:10px;color:var(--t3);margin-bottom:2px;">合計支出</div>
+                <div id="grp-total" style="font-size:16px;font-weight:700;font-family:var(--mono);">¥0</div>
+              </div>
+              <div style="flex:1;background:var(--bg3);border-radius:10px;padding:10px;text-align:center;">
+                <div style="font-size:10px;color:var(--t3);margin-bottom:2px;">1人あたり</div>
+                <div id="grp-per-person" style="font-size:16px;font-weight:700;font-family:var(--mono);">¥0</div>
+              </div>
+            </div>
+            <div id="grp-expense-list"></div>
+            <!-- 精算方法 -->
+            <div id="grp-settle-section" style="margin-top:12px;display:none;">
+              <div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:0.5px;margin-bottom:8px;">精算方法</div>
+              <div id="grp-settle-list"></div>
+              <div style="margin-top:10px;padding:10px;background:var(--bg3);border-radius:10px;">
+                <div style="font-size:11px;color:var(--t3);margin-bottom:6px;">💳 支払い方法</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button onclick="openPayment('paypay')" style="padding:6px 12px;border-radius:8px;background:rgba(255,0,0,0.12);border:1px solid rgba(255,0,0,0.25);font-size:12px;color:#FF0000;font-family:var(--font);cursor:pointer;">PayPay</button>
+                  <button onclick="openPayment('line')" style="padding:6px 12px;border-radius:8px;background:rgba(0,185,0,0.1);border:1px solid rgba(0,185,0,0.25);font-size:12px;color:#00B900;font-family:var(--font);cursor:pointer;">LINE Pay</button>
+                  <button onclick="openPayment('bank')" style="padding:6px 12px;border-radius:8px;background:var(--bg3);border:1px solid var(--bdr2);font-size:12px;color:var(--t2);font-family:var(--font);cursor:pointer;">銀行振込</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 共有チェックリスト -->
+          <div class="grp-card">
+            <div class="sec-lbl">共有持ち物リスト</div>
+            <div id="grp-shared-checklist" style="display:flex;flex-direction:column;gap:6px;"></div>
+            <button onclick="addSharedItem()" style="width:100%;margin-top:8px;padding:8px;border-radius:10px;border:1px dashed var(--bdr2);background:transparent;font-size:13px;color:var(--t2);cursor:pointer;font-family:var(--font);">
+              + アイテムを追加
+            </button>
+          </div>
+
+          <!-- 招待リンク -->
+          <div style="padding:12px 14px;background:rgba(91,142,255,0.08);border:1px solid rgba(91,142,255,0.2);border-radius:12px;">
+            <div style="font-size:12px;font-weight:600;color:var(--acc);margin-bottom:4px;">🔗 招待リンク</div>
+            <div id="grp-invite-link" style="font-size:11px;color:var(--t2);margin-bottom:8px;word-break:break-all;"></div>
+            <div style="display:flex;gap:6px;">
+              <button onclick="copyInviteLink()" style="flex:1;padding:7px;border-radius:8px;background:rgba(91,142,255,0.15);border:1px solid rgba(91,142,255,0.3);font-size:12px;color:var(--acc);font-family:var(--font);cursor:pointer;">コピー</button>
+              <button onclick="shareInvite()" style="flex:1;padding:7px;border-radius:8px;background:rgba(91,142,255,0.15);border:1px solid rgba(91,142,255,0.3);font-size:12px;color:var(--acc);font-family:var(--font);cursor:pointer;">共有</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ WALLET PAGE ══ -->
+    <div class="page" id="pg-wallet">
+      <div class="ph">
+        <div class="ph-title">Wallet & ウィジェット</div>
+        <div class="ph-sub">搭乗券・ロック画面ウィジェット・Siri</div>
+      </div>
+      <div class="pscroll" style="padding:0 0 20px;">
+
+        <!-- 搭乗券プレビュー -->
+        <div style="font-size:11px;font-weight:600;color:var(--t3);letter-spacing:0.5px;padding:0 16px 8px;">搭乗券</div>
+        <div id="wallet-bp-list"></div>
+        <div id="wallet-no-flight" style="display:none;margin:0 16px 12px;padding:20px;text-align:center;background:var(--bg2);border-radius:14px;border:1px solid var(--bdr);">
+          <div style="font-size:28px;margin-bottom:8px;">✈️</div>
+          <div style="font-size:13px;color:var(--t2);">フライト予約を追加すると<br>搭乗券が表示されます</div>
+        </div>
+
+        <!-- ロック画面ウィジェット -->
+        <div class="widget-preview">
+          <div class="widget-preview-title">ロック画面ウィジェット（プレビュー）</div>
+          <!-- 小ウィジェット -->
+          <div class="widget-sm">
+            <div style="font-size:18px;">✈️</div>
+            <div class="f1">
+              <div style="font-size:10px;color:rgba(255,255,255,0.5);">次の出発</div>
+              <div id="wg-sm-val" style="font-size:13px;font-weight:700;">1h 23m</div>
+            </div>
+          </div>
+          <!-- 中ウィジェット -->
+          <div class="widget-lg">
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px;">ScreeTrip</div>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">
+              <div id="wg-lg-val" style="font-size:22px;font-weight:700;font-family:var(--mono);">1h 23m</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.5);">で出発</div>
+            </div>
+            <div id="wg-lg-name" style="font-size:12px;font-weight:600;">✈️ JAL 304</div>
+            <div id="wg-lg-sub" style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:2px;">出発目安 08:45</div>
+          </div>
+          <div style="padding:8px 14px 12px;">
+            <button onclick="openProModal()" style="width:100%;padding:10px;border-radius:11px;background:rgba(91,142,255,0.2);border:1px solid rgba(91,142,255,0.35);font-size:12px;font-weight:600;color:var(--acc);font-family:var(--font);cursor:pointer;">
+              ⭐ Pro でロック画面に追加する
+            </button>
+          </div>
+        </div>
+
+        <!-- Siri ショートカット -->
+        <div class="siri-demo">
+          <div style="font-size:12px;font-weight:600;color:var(--acc);margin-bottom:8px;">🎙️ Siriショートカット</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:14px;">🎤</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;">「次の出発は？」</div>
+                <div style="font-size:10px;color:var(--t2);margin-top:1px;">ScreeTripが残り時間を読み上げます</div>
+              </div>
+            </div>
+            <div style="background:rgba(0,0,0,0.3);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;">
+              <span style="font-size:14px;">🎤</span>
+              <div>
+                <div style="font-size:12px;font-weight:600;">「持ち物を確認して」</div>
+                <div style="font-size:10px;color:var(--t2);margin-top:1px;">未チェックのアイテムを読み上げます</div>
+              </div>
+            </div>
+            <button onclick="openProModal()" style="padding:9px;border-radius:10px;background:rgba(91,142,255,0.15);border:1px solid rgba(91,142,255,0.3);font-size:12px;font-weight:600;color:var(--acc);font-family:var(--font);cursor:pointer;margin-top:2px;">
+              ⭐ Pro でSiriに追加する
+            </button>
+          </div>
+        </div>
+
+        <!-- プッシュ通知 -->
+        <div class="push-preview" style="margin:0 16px 12px;">
+          <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:8px;">🔔 プッシュ通知（Critical Alert）</div>
+          <div style="background:rgba(255,255,255,0.06);border-radius:12px;padding:10px 12px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span style="font-size:14px;">✈️</span>
+              <span style="font-size:12px;font-weight:600;">ScreeTrip</span>
+              <span style="font-size:10px;color:var(--t3);margin-left:auto;">今すぐ</span>
+            </div>
+            <div style="font-size:12px;font-weight:600;color:var(--red);">🚨 出発限界時刻を超過！</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:2px;">JAL 304 まで今すぐ出発してください</div>
+          </div>
+          <div style="font-size:10px;color:var(--t3);line-height:1.5;">
+            Critical Alert: サイレントモードでも最大音量で鳴動<br>
+            ※ Apple審査承認後に有効化されます
+          </div>
+        </div>
+
+        <!-- メール自動解析 -->
+        <div style="margin:0 16px 12px;padding:14px;background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;">
+          <div style="font-size:12px;font-weight:600;color:var(--grn);margin-bottom:6px;">✉️ メール自動解析 (Beta)</div>
+          <div style="font-size:12px;color:var(--t2);margin-bottom:10px;line-height:1.5;">
+            予約確認メールを以下のアドレスに転送するだけで自動登録されます
+          </div>
+          <div style="background:var(--bg3);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div style="font-size:12px;font-family:var(--mono);color:var(--acc);flex:1;" id="mail-forward-addr">trips@screetrip.jp</div>
+            <button onclick="copyMailAddr()" style="font-size:11px;color:var(--t2);padding:3px 8px;border:1px solid var(--bdr);border-radius:6px;background:transparent;cursor:pointer;font-family:var(--font);">コピー</button>
+          </div>
+          <button onclick="openProModal()" style="width:100%;padding:9px;border-radius:10px;background:rgba(0,214,143,0.12);border:1px solid rgba(0,214,143,0.25);font-size:12px;font-weight:600;color:var(--grn);font-family:var(--font);cursor:pointer;">
+            ⭐ Pro で有効化する
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══ JET LAG PAGE ══ -->
+    <div class="page" id="pg-jetlag">
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0;flex-shrink:0;">
+        <button onclick="goBack()" style="font-size:14px;color:#A78BFA;padding:6px 10px;border-radius:8px;border:1px solid rgba(167,139,250,0.3);background:rgba(167,139,250,0.08);">‹ 戻る</button>
+        <div style="font-size:16px;font-weight:600;margin-left:4px;">時差ぼけ対策</div>
+        <div id="jl-diff-badge" style="margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(167,139,250,0.15);color:#A78BFA;"></div>
+      </div>
+
+      <div class="pscroll" style="padding:12px 0 24px;">
+
+        <!-- ヒーロー：体内時計ビジュアル -->
+        <div class="jl-hero fi">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            <div class="body-clock" id="jl-body-clock">
+              <div class="clock-hand" id="jl-hour-hand" style="transform:rotate(0deg);"></div>
+              <div class="clock-hand-m" id="jl-min-hand" style="transform:rotate(0deg);"></div>
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--acc);position:absolute;"></div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--t2);margin-bottom:2px;">あなたの体内時計</div>
+              <div id="jl-body-time" style="font-size:20px;font-weight:700;font-family:var(--mono);letter-spacing:-0.5px;"></div>
+              <div id="jl-dest-time" style="font-size:12px;color:var(--t2);margin-top:2px;"></div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:6px;">適応進捗</div>
+          <div class="jl-phase-bar" id="jl-phase-bar">
+            <div class="jl-phase-seg" style="background:#FF4D6A;width:100%;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:3px;">
+            <span>出発前</span><span id="jl-adapt-pct" style="color:var(--acc);font-weight:600;"></span><span>完全適応</span>
+          </div>
+          <div id="jl-summary" style="margin-top:12px;font-size:12px;color:var(--t2);line-height:1.6;"></div>
+        </div>
+
+        <!-- 行き先選択（自動検出 or 手動） -->
+        <div style="margin:0 16px 12px;padding:12px 14px;background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;">
+          <div class="sec-lbl" style="margin-bottom:8px;">目的地タイムゾーン</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="jl-tz-select" onchange="onJlTzChange()" style="flex:1;background:var(--bg3);border:1px solid var(--bdr2);border-radius:10px;padding:8px 10px;font-size:13px;color:var(--t1);font-family:var(--font);cursor:pointer;"></select>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-size:10px;color:var(--t3);">現地時刻</div>
+              <div id="jl-local-now" style="font-size:14px;font-weight:600;font-family:var(--mono);"></div>
+            </div>
+          </div>
+          <div id="jl-auto-detected" style="display:none;margin-top:6px;font-size:11px;color:var(--grn);">✅ フライト予約から自動検出</div>
+        </div>
+
+        <!-- 日別スケジュール -->
+        <div style="padding:0 16px;margin-bottom:8px;">
+          <div class="sec-lbl">時差ぼけ解消スケジュール</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:-4px;margin-bottom:8px;">日本時間基準 — 現地到着後X日で完全適応</div>
+        </div>
+        <div id="jl-schedule-list"></div>
+
+        <!-- メラトニン推奨 -->
+        <div class="melatonin-card fi2">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:18px;">💊</span>
+            <div style="font-size:13px;font-weight:600;color:#A78BFA;">メラトニン服用タイミング</div>
+          </div>
+          <div id="jl-melatonin-body" style="font-size:12px;color:var(--t2);line-height:1.6;"></div>
+          <div style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.2);border-radius:8px;font-size:10px;color:var(--t3);line-height:1.5;">
+            ⚠️ メラトニンは日本では医薬品です。服用前に医師・薬剤師にご相談ください。推奨量：0.5〜3mg
+          </div>
+        </div>
+
+        <!-- 光療法 -->
+        <div class="light-card fi3">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:18px;">☀️</span>
+            <div style="font-size:13px;font-weight:600;color:#FFB547;">光療法スケジュール</div>
+          </div>
+          <div id="jl-light-body" style="font-size:12px;color:var(--t2);line-height:1.6;"></div>
+        </div>
+
+        <!-- カフェイン -->
+        <div class="caffeine-card fi4">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="font-size:18px;">☕</span>
+            <div style="font-size:13px;font-weight:600;color:#B47840;">カフェイン戦略</div>
+          </div>
+          <div id="jl-caffeine-body" style="font-size:12px;color:var(--t2);line-height:1.6;"></div>
+        </div>
+
+        <!-- 科学的根拠ノート -->
+        <div style="margin:0 16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid var(--bdr);">
+          <div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;">📚 科学的根拠</div>
+          <div style="font-size:11px;color:var(--t3);line-height:1.6;">
+            Harvard Medical School の概日リズム研究に基づき、1時間の時差につき約1日の適応期間が必要とされています。
+            東向き（時差プラス）は西向きより適応が難しく、光療法とメラトニンの組み合わせで最大50%短縮できます。
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+
+    <!-- ══ MAP PAGE ══ -->
+    <div class="page" id="pg-map">
+      <!-- ヘッダー -->
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0;flex-shrink:0;">
+        <button onclick="goBack()" style="font-size:14px;color:var(--acc);padding:6px 10px;border-radius:8px;border:1px solid rgba(91,142,255,0.3);background:rgba(91,142,255,0.08);">‹ 戻る</button>
+        <div style="font-size:16px;font-weight:600;margin-left:4px;" id="map-page-title">マップ</div>
+        <button onclick="openMapSettings()" style="margin-left:auto;font-size:14px;color:var(--t3);padding:4px 8px;">⚙️</button>
+      </div>
+
+      <!-- トークン未設定時フォールバック -->
+      <div id="mapkit-fallback" class="map-fallback" style="display:none;">
+        <div style="font-size:40px;">🗺️</div>
+        <div style="font-size:16px;font-weight:600;">MapKit JWTトークンを設定</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.6;">
+          Apple Developer Consoleで発行したJWTトークンを入力してください。
+          <a href="https://maps.developer.apple.com/token-maker" target="_blank" rel="noopener" style="color:var(--acc);">Token Maker →</a>
+        </div>
+        <input class="map-token-input" id="mapkit-token-input" placeholder="eyJhbGciOiJFUzI1NiIs..." type="password"/>
+        <button onclick="initMapKitWithToken()" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;font-size:14px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--font);">
+          Appleマップを初期化
+        </button>
+        <div style="font-size:10px;color:var(--t3);margin-top:8px;line-height:1.6;text-align:center;">
+          ※ トークンはこのデバイスにのみ保存されます<br>
+          Token Makerで発行 → Vercelのenv変数に設定が本番推奨
+        </div>
+      </div>
+
+      <!-- MapKit JS レンダリング領域 -->
+      <div id="mapkit-wrap" style="flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;">
+
+        <!-- 検索バー -->
+        <div class="map-search-bar">
+          <input class="map-search-input" id="map-search-input"
+            placeholder="場所・住所を検索..."
+            oninput="onMapSearchInput(this.value)"
+            onkeydown="if(event.key==='Enter') doMapSearch()"/>
+          <button class="map-search-btn" onclick="doMapSearch()">🔍</button>
+        </div>
+
+        <!-- 予約からの目的地チップ -->
+        <div id="map-dest-chips" style="position:absolute;top:62px;left:12px;right:12px;z-index:100;display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;"></div>
+
+        <!-- オートコンプリート候補 -->
+        <div id="map-autocomplete" style="
+          display:none;position:absolute;top:58px;left:12px;right:12px;z-index:200;
+          background:rgba(17,17,24,0.97);backdrop-filter:blur(20px);
+          border:1px solid var(--bdr2);border-radius:14px;overflow:hidden;
+          box-shadow:0 8px 32px rgba(0,0,0,0.5);
+        "></div>
+
+        <!-- MapKit JS マップ本体 -->
+        <div id="mapkit-container" style="flex:1;"></div>
+
+        <!-- ルートバー（経路検索後に表示） -->
+        <div id="map-route-bar" class="map-route-bar" style="display:none;">
+          <div style="font-size:18px;" id="map-route-icon">🚆</div>
+          <div class="f1">
+            <div style="font-size:13px;font-weight:600;" id="map-route-title"></div>
+            <div style="font-size:11px;color:var(--t2);" id="map-route-sub"></div>
+          </div>
+          <button onclick="openInMaps()" style="padding:7px 12px;border-radius:10px;background:rgba(91,142,255,0.15);border:1px solid rgba(91,142,255,0.3);font-size:12px;font-weight:600;color:var(--acc);cursor:pointer;font-family:var(--font);">開く</button>
+          <button onclick="closeRouteBar()" style="font-size:16px;color:var(--t3);padding:4px;">✕</button>
+        </div>
+
+        <!-- ピンタップ時ボトムカード -->
+        <div id="map-pin-card" class="map-pin-card">
+          <div class="map-pin-handle"></div>
+          <div class="row gap10" style="margin-bottom:10px;">
+            <div id="mpc-emoji" style="font-size:24px;flex-shrink:0;">📍</div>
+            <div class="f1">
+              <div id="mpc-name" style="font-size:16px;font-weight:700;"></div>
+              <div id="mpc-addr" style="font-size:12px;color:var(--t2);margin-top:2px;"></div>
+            </div>
+          </div>
+          <div id="mpc-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="setMapDest(currentMapAnnotation)" style="flex:1;padding:11px;border-radius:12px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--font);">
+              🗺️ ここへ経路
+            </button>
+            <button onclick="copyAnnotationAddr()" style="padding:11px 14px;border-radius:12px;background:var(--bg3);border:1px solid var(--bdr);font-size:13px;color:var(--t2);cursor:pointer;font-family:var(--font);">
+              ⎘ コピー
+            </button>
+            <button onclick="closePinCard()" style="padding:11px 14px;border-radius:12px;background:var(--bg3);border:1px solid var(--bdr);font-size:16px;color:var(--t3);cursor:pointer;">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MapKit設定モーダル -->
+      <div id="mapkit-settings-modal" style="
+        display:none;position:absolute;inset:0;z-index:300;
+        background:rgba(0,0,0,0.6);backdrop-filter:blur(10px);
+        align-items:flex-end;
+      ">
+        <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:20px 20px 40px;width:100%;">
+          <div style="width:36px;height:4px;border-radius:2px;background:var(--bdr2);margin:0 auto 16px;"></div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:14px;">MapKit JS 設定</div>
+
+          <div style="margin-bottom:12px;">
+            <div style="font-size:12px;color:var(--t2);margin-bottom:6px;">JWTトークン</div>
+            <input class="map-token-input" id="mapkit-settings-token" placeholder="現在のトークン（編集可）" type="password" style="margin-top:0;"/>
+          </div>
+          <div style="margin-bottom:12px;">
+            <div style="font-size:12px;color:var(--t2);margin-bottom:6px;">マップスタイル</div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="setMapStyle('standard')" id="map-style-std" style="flex:1;padding:8px;border-radius:10px;border:1px solid var(--acc);background:rgba(91,142,255,0.15);font-size:12px;color:var(--acc);font-family:var(--font);cursor:pointer;">標準</button>
+              <button onclick="setMapStyle('hybrid')" id="map-style-hyb" style="flex:1;padding:8px;border-radius:10px;border:1px solid var(--bdr);background:transparent;font-size:12px;color:var(--t2);font-family:var(--font);cursor:pointer;">衛星 + 地名</button>
+              <button onclick="setMapStyle('satellite')" id="map-style-sat" style="flex:1;padding:8px;border-radius:10px;border:1px solid var(--bdr);background:transparent;font-size:12px;color:var(--t2);font-family:var(--font);cursor:pointer;">衛星</button>
+            </div>
+          </div>
+          <button onclick="saveMapSettings()" style="width:100%;padding:13px;border-radius:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;font-size:14px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--font);">
+            保存して適用
+          </button>
+          <button onclick="closeMapSettings()" style="width:100%;margin-top:8px;padding:10px;border-radius:14px;background:transparent;border:1px solid var(--bdr);font-size:13px;color:var(--t2);cursor:pointer;font-family:var(--font);">キャンセル</button>
+        </div>
+      </div>
+
+    </div>
+
   </div><!-- /pages -->
 
   <!-- TAB BAR -->
-  <div id="tabbar" id="tabbar-el">
+  <div id="tabbar" style="padding-left:0;padding-right:0;">
     <button class="tb" data-pg="pg-schedule" onclick="showTab('pg-schedule')">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z" stroke="var(--t3)" stroke-width="1.5" fill="none" stroke-linejoin="round"/><path d="M9 21V12h6v9" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z" stroke="var(--t3)" stroke-width="1.5" fill="none" stroke-linejoin="round"/><path d="M9 21V12h6v9" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
       <span class="tb-lbl">ホーム</span>
     </button>
+    <button class="tb" data-pg="pg-map" onclick="showTab('pg-map')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z" stroke="var(--t3)" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        <path d="M9 3v15M15 6v15" stroke="var(--t3)" stroke-width="1.5"/>
+      </svg>
+      <span class="tb-lbl">マップ</span>
+    </button>
+    <button class="tb" data-pg="pg-group" onclick="showTab('pg-group')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="7" r="3" stroke="var(--t3)" stroke-width="1.5" fill="none"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round" fill="none"/><circle cx="17" cy="7" r="2.5" stroke="var(--t3)" stroke-width="1.5" fill="none"/><path d="M21 20c0-2.8-1.8-5.1-4-5.8" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+      <span class="tb-lbl">グループ</span>
+    </button>
     <button class="tb" data-pg="pg-ocr" onclick="showTab('pg-ocr')">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="var(--t3)" stroke-width="1.5" fill="none"/><path d="M8 12h8M12 8v8" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="var(--t3)" stroke-width="1.5" fill="none"/><path d="M8 12h8M12 8v8" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
       <span class="tb-lbl">解析</span>
     </button>
-    <button class="tb" data-pg="pg-checklist" onclick="showTab('pg-checklist')">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="var(--t3)" stroke-width="1.5" fill="none"/><path d="M7.5 12l3 3 6-6" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span class="tb-lbl">持ち物</span>
+    <button class="tb" data-pg="pg-jetlag" onclick="showTab('pg-jetlag')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9" stroke="var(--t3)" stroke-width="1.5" fill="none"/>
+        <path d="M12 7v5l3 3" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M5 5l1.5 1.5M19 5l-1.5 1.5" stroke="var(--t3)" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <span class="tb-lbl">時差対策</span>
+    </button>
+    <button class="tb" data-pg="pg-wallet" onclick="showTab('pg-wallet')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke="var(--t3)" stroke-width="1.5" fill="none"/><path d="M16 12a1 1 0 110 2 1 1 0 010-2z" fill="var(--t3)"/><path d="M2 9h20" stroke="var(--t3)" stroke-width="1.5"/></svg>
+      <span class="tb-lbl">Wallet</span>
     </button>
     <button class="tb" data-pg="pg-notifs" onclick="showTab('pg-notifs')">
       <div class="notif-badge" id="notif-tab-dot" style="display:none;"></div>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2a6 6 0 016 6v3.5l1.5 2.5H4.5L6 11.5V8a6 6 0 016-6z" stroke="var(--t3)" stroke-width="1.5" fill="none" stroke-linejoin="round"/><path d="M9.5 18.5a2.5 2.5 0 005 0" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2a6 6 0 016 6v3.5l1.5 2.5H4.5L6 11.5V8a6 6 0 016-6z" stroke="var(--t3)" stroke-width="1.5" fill="none" stroke-linejoin="round"/><path d="M9.5 18.5a2.5 2.5 0 005 0" stroke="var(--t3)" stroke-width="1.5" stroke-linecap="round"/></svg>
       <span class="tb-lbl">通知</span>
     </button>
   </div>
@@ -913,7 +1685,7 @@ function getTypeInfo(type) { return TYPE_INFO[type]||TYPE_INFO.other; }
 // ══════════════════════════════════════════════
 // PAGE NAVIGATION
 // ══════════════════════════════════════════════
-var TABBAR_PAGES = ['pg-schedule','pg-ocr','pg-checklist','pg-notifs'];
+var TABBAR_PAGES = ['pg-schedule','pg-map','pg-group','pg-ocr','pg-jetlag','pg-wallet','pg-notifs','pg-checklist'];
 
 function showPage(id, pushHistory) {
   if (pushHistory !== false) pageHistory.push(id);
@@ -940,11 +1712,15 @@ function showPage(id, pushHistory) {
 }
 
 function showTab(id) {
-  pageHistory = [id]; // reset history for tab switch
+  pageHistory = [id];
   showPage(id, false);
   if (id==='pg-checklist') renderChecklist();
   if (id==='pg-notifs') renderNotifications();
   if (id==='pg-schedule') updateSchedule();
+  if (id==='pg-group') renderGroup();
+  if (id==='pg-wallet') renderWallet();
+  if (id==='pg-jetlag') renderJetLag();
+  if (id==='pg-map') renderMapPage();
 }
 
 function goBack() {
@@ -1005,6 +1781,7 @@ function onLoggedIn(user) {
   // 自動的に呼ばれるので、ここで明示的に1回だけ実行
   updateSchedule();
   if (IS_DEMO) setTimeout(triggerDemoBanners, 1200);
+  if (IS_DEMO) { currentGroup = DEMO_GROUP; groupExpenses = DEMO_EXPENSES.slice(); }
 }
 
 // ══════════════════════════════════════════════
@@ -1315,6 +2092,12 @@ function fallbackCopy(text) {
 // ══════════════════════════════════════════════
 function openGmap() {
   if (!currentDetailRes) return;
+  // まずアプリ内マップページで表示を試みる
+  var res = currentDetailRes;
+  if (mkMap) {
+    openMapWithRes(res);
+    return;
+  }
   var dest = currentDetailRes.addr || currentDetailRes.name || '';
   var enc  = encodeURIComponent(dest);
 
@@ -1518,6 +2301,7 @@ function saveOcrResult() {
   var dtStr=el('ocr-dt').value.trim();
   var type=ocrStaged.type||'other';
   if (!name&&!addr) { showToast('目的地名または住所を入力してください'); return; }
+  if (!IS_PRO && reservations.length >= FREE_LIMIT) { openProModal(); return; }
   var dt = dtStr ? safeDate(dtStr
     .replace(/年/g,'-').replace(/月/g,'-').replace(/日/g,' ')
     .replace(/時/g,':').replace(/分/g,'').trim()) : new Date();
@@ -1799,6 +2583,1311 @@ function markAllRead() {
   updateNotifBadge();
   renderNotifications();
 }
+
+// ══════════════════════════════════════════════
+// PRO / FREEMIUM
+// ══════════════════════════════════════════════
+var IS_PRO = false;
+var FREE_LIMIT = 3;
+var selectedPlan = 'monthly';
+var PRICES = { monthly: '¥480/月', yearly: '¥3,800/年' };
+
+function openProModal() {
+  el('pro-modal').classList.add('on');
+}
+function closeProModal() {
+  el('pro-modal').classList.remove('on');
+}
+el('pro-modal').addEventListener('click', function(e) {
+  if (e.target === el('pro-modal')) closeProModal();
+});
+
+function selectPlan(plan) {
+  selectedPlan = plan;
+  el('plan-monthly').classList.toggle('selected', plan === 'monthly');
+  el('plan-yearly').classList.toggle('selected', plan === 'yearly');
+}
+
+function purchasePro() {
+  // 実機: StoreKit 2 の Product.purchase() を呼び出す
+  // デモ: 即座にPro解放
+  showToast('購入処理中... (デモ: Pro解放済み)');
+  setTimeout(function() {
+    IS_PRO = true;
+    closeProModal();
+    showToast('⭐ Proにアップグレードしました！');
+    updateSchedule();
+    renderWallet();
+  }, 1000);
+}
+
+function restorePurchase() {
+  showToast('購入を確認中...');
+  setTimeout(function() { showToast('購入履歴が見つかりませんでした'); }, 1200);
+}
+
+function checkProLimit() {
+  if (IS_PRO) { el('pro-limit-banner').style.display = 'none'; return true; }
+  var limit = reservations.length >= FREE_LIMIT;
+  el('pro-limit-banner').style.display = limit ? 'flex' : 'none';
+  return !limit;
+}
+
+// ══════════════════════════════════════════════
+// GROUP & EXPENSE
+// ══════════════════════════════════════════════
+var currentGroup = null;
+var groupExpenses = [];
+var sharedChecklist = [
+  { id:'sc1', label:'日焼け止め', done:false },
+  { id:'sc2', label:'ビーチタオル', done:false },
+  { id:'sc3', label:'スナック・飲み物', done:false },
+];
+
+var DEMO_GROUP = {
+  id: 'grp_demo',
+  name: '沖縄旅行 2026',
+  inviteCode: 'OKWN-2026',
+  members: [
+    { id:'m1', name:'田中（あなた）', initial:'田', color:'#5B8EFF', role:'幹事', paid:18500 },
+    { id:'m2', name:'佐藤',           initial:'佐', color:'#00D68F', role:'メンバー', paid:5000 },
+    { id:'m3', name:'鈴木',           initial:'鈴', color:'#FFB547', role:'メンバー', paid:0 },
+    { id:'m4', name:'高橋',           initial:'高', color:'#A78BFA', role:'メンバー', paid:3200 },
+  ],
+};
+var DEMO_EXPENSES = [
+  { id:'e1', label:'ホテル代（4名）', amount:48000, paidBy:'m1', cat:'🏨', split:'equal' },
+  { id:'e2', label:'レンタカー',       amount:12000, paidBy:'m1', cat:'🚗', split:'equal' },
+  { id:'e3', label:'居酒屋',           amount:18000, paidBy:'m2', cat:'🍻', split:'equal' },
+  { id:'e4', label:'ガソリン',         amount:3200,  paidBy:'m4', cat:'⛽', split:'equal' },
+];
+
+function createGroup() {
+  currentGroup = DEMO_GROUP;
+  groupExpenses = DEMO_EXPENSES.slice();
+  renderGroup();
+}
+function joinGroup() {
+  var code = prompt('招待コードを入力してください:');
+  if (code && code.toUpperCase() === 'OKWN-2026') {
+    currentGroup = DEMO_GROUP;
+    groupExpenses = DEMO_EXPENSES.slice();
+    renderGroup();
+  } else if (code) {
+    showToast('招待コードが見つかりません');
+  }
+}
+
+function renderGroup() {
+  if (!currentGroup) {
+    el('grp-no-group').style.display = 'block';
+    el('grp-detail').style.display = 'none';
+    return;
+  }
+  el('grp-no-group').style.display = 'none';
+  el('grp-detail').style.display = 'block';
+
+  // メンバー
+  var ml = el('grp-member-list'); ml.innerHTML = '';
+  currentGroup.members.forEach(function(m) {
+    var d = document.createElement('div');
+    d.className = 'grp-member';
+    var roleColor = m.role === '幹事' ? '#FFB547' : 'var(--t3)';
+    var roleBg   = m.role === '幹事' ? 'rgba(255,181,71,0.12)' : 'var(--bg3)';
+    d.innerHTML = '<div class="grp-avatar" style="background:' + m.color + '22;color:' + m.color + ';">' + m.initial + '</div>'
+      + '<div class="f1"><div style="font-size:13px;font-weight:500;">' + escHtml(m.name) + '</div></div>'
+      + '<div class="grp-role" style="color:' + roleColor + ';background:' + roleBg + ';">' + m.role + '</div>';
+    ml.appendChild(d);
+  });
+
+  // 旅費
+  renderExpenses();
+
+  // 招待リンク
+  var link = 'https://screetrip.app/join/' + currentGroup.inviteCode;
+  el('grp-invite-link').textContent = link;
+
+  // 共有チェックリスト
+  renderSharedChecklist();
+}
+
+function renderExpenses() {
+  var total = groupExpenses.reduce(function(s, e) { return s + e.amount; }, 0);
+  var perPerson = currentGroup ? Math.ceil(total / currentGroup.members.length) : 0;
+  el('grp-total').textContent = '¥' + total.toLocaleString();
+  el('grp-per-person').textContent = '¥' + perPerson.toLocaleString();
+
+  var list = el('grp-expense-list'); list.innerHTML = '';
+  groupExpenses.forEach(function(exp) {
+    var payer = currentGroup.members.find(function(m) { return m.id === exp.paidBy; });
+    var d = document.createElement('div');
+    d.className = 'expense-item';
+    d.innerHTML = '<div class="expense-cat" style="background:rgba(255,255,255,0.06);">' + exp.cat + '</div>'
+      + '<div class="f1"><div style="font-size:13px;font-weight:500;">' + escHtml(exp.label) + '</div>'
+      + '<div style="font-size:11px;color:var(--t3);">支払: ' + escHtml(payer ? payer.name : '?') + '</div></div>'
+      + '<div style="font-size:14px;font-weight:600;font-family:var(--mono);">¥' + exp.amount.toLocaleString() + '</div>';
+    list.appendChild(d);
+  });
+
+  // 精算計算（最小送金数アルゴリズム）
+  calculateSettle(total, perPerson);
+}
+
+function calculateSettle(total, perPerson) {
+  if (!currentGroup) return;
+  // 各メンバーの過不足を計算
+  var balances = currentGroup.members.map(function(m) {
+    var paid = groupExpenses
+      .filter(function(e) { return e.paidBy === m.id; })
+      .reduce(function(s, e) { return s + e.amount; }, 0);
+    return { id: m.id, name: m.name, balance: paid - perPerson };
+  });
+
+  // 精算リスト生成
+  var settles = [];
+  var creditors = balances.filter(function(b) { return b.balance > 0; }).sort(function(a,b){ return b.balance-a.balance; });
+  var debtors   = balances.filter(function(b) { return b.balance < 0; }).sort(function(a,b){ return a.balance-b.balance; });
+  var ci = 0, di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    var c = creditors[ci], d = debtors[di];
+    var amt = Math.min(c.balance, -d.balance);
+    if (amt > 50) settles.push({ from: d.name, to: c.name, amount: Math.round(amt) });
+    c.balance -= amt; d.balance += amt;
+    if (Math.abs(c.balance) < 50) ci++;
+    if (Math.abs(d.balance) < 50) di++;
+  }
+
+  el('grp-settle-section').style.display = settles.length > 0 ? 'block' : 'none';
+  var sl = el('grp-settle-list'); sl.innerHTML = '';
+  settles.forEach(function(s) {
+    var row = document.createElement('div');
+    row.className = 'settle-row';
+    row.innerHTML = '<span style="font-size:13px;font-weight:500;">' + escHtml(s.from) + '</span>'
+      + '<span class="settle-arrow">→</span>'
+      + '<span style="font-size:13px;font-weight:500;">' + escHtml(s.to) + '</span>'
+      + '<span style="flex:1;"></span>'
+      + '<span style="font-size:14px;font-weight:700;font-family:var(--mono);color:var(--red);">¥' + s.amount.toLocaleString() + '</span>';
+    sl.appendChild(row);
+  });
+}
+
+function addExpense() {
+  var label  = prompt('支出の内容:');
+  if (!label) return;
+  var amt = parseInt(prompt('金額 (円):') || '0', 10);
+  if (isNaN(amt) || amt <= 0) return;
+  var cats = ['🍽️','🏨','🚗','🎡','🛍️','⛽','🍻','✈️'];
+  var cat = cats[Math.floor(Math.random() * cats.length)];
+  groupExpenses.push({ id: 'e_' + Date.now(), label: label, amount: amt, paidBy: 'm1', cat: cat, split: 'equal' });
+  renderExpenses();
+  showToast('支出を追加しました');
+}
+
+function inviteMember() {
+  if (!currentGroup) return;
+  var link = 'https://screetrip.app/join/' + currentGroup.inviteCode;
+  if (navigator.share) {
+    navigator.share({ title: 'ScreeTripグループに参加', text: '「' + currentGroup.name + '」に招待されました', url: link })
+      .catch(function(){});
+  } else {
+    if (navigator.clipboard) navigator.clipboard.writeText(link);
+    showToast('招待リンクをコピーしました');
+  }
+}
+
+function copyInviteLink() {
+  if (!currentGroup) return;
+  var link = 'https://screetrip.app/join/' + currentGroup.inviteCode;
+  fallbackCopy(link);
+  showToast('招待リンクをコピーしました');
+}
+
+function shareInvite() { inviteMember(); }
+
+function openPayment(method) {
+  var urls = {
+    paypay: 'paypay://',
+    line:   'linepay://',
+    bank:   '#',
+  };
+  if (method === 'bank') { showToast('振込先情報をコピーしました'); return; }
+  showToast(method === 'paypay' ? 'PayPayを開きます' : 'LINE Payを開きます');
+  setTimeout(function() { window.location.href = urls[method]; }, 300);
+}
+
+function renderSharedChecklist() {
+  var list = el('grp-shared-checklist'); list.innerHTML = '';
+  sharedChecklist.forEach(function(item) {
+    var d = document.createElement('div');
+    d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;background:' + (item.done ? 'rgba(0,214,143,0.06)' : 'var(--bg3)') + ';border-radius:10px;border:1px solid ' + (item.done ? 'rgba(0,214,143,0.2)' : 'var(--bdr)') + ';cursor:pointer;';
+    d.innerHTML = '<div style="width:20px;height:20px;border-radius:50%;border:1.5px solid ' + (item.done ? 'var(--grn)' : 'var(--bdr2)') + ';background:' + (item.done ? 'var(--grn)' : 'transparent') + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+      + (item.done ? '<svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>' : '')
+      + '</div>'
+      + '<span style="font-size:13px;' + (item.done ? 'text-decoration:line-through;color:var(--t2);' : '') + '">' + escHtml(item.label) + '</span>';
+    d.addEventListener('click', function() { item.done = !item.done; renderSharedChecklist(); });
+    list.appendChild(d);
+  });
+}
+
+function addSharedItem() {
+  var label = prompt('アイテムを追加:');
+  if (!label) return;
+  sharedChecklist.push({ id: 'sc_' + Date.now(), label: label, done: false });
+  renderSharedChecklist();
+}
+
+// ══════════════════════════════════════════════
+// WALLET & BOARDING PASS
+// ══════════════════════════════════════════════
+function renderWallet() {
+  var flights = reservations.filter(function(r) { return r.type === 'flight'; });
+  var list = el('wallet-bp-list');
+  var noFlight = el('wallet-no-flight');
+  list.innerHTML = '';
+
+  if (flights.length === 0) {
+    noFlight.style.display = 'block';
+    return;
+  }
+  noFlight.style.display = 'none';
+
+  // ウィジェット値を更新
+  var next = reservations.slice().sort(function(a,b){ return safeDate(a.dt)-safeDate(b.dt); })
+    .find(function(r){ return safeDate(r.dt).getTime() > Date.now()-60000; });
+  if (next) {
+    var cd = countdown(safeDate(next.dt));
+    if (el('wg-sm-val')) el('wg-sm-val').textContent = cd.label;
+    if (el('wg-lg-val')) el('wg-lg-val').textContent = cd.label;
+    if (el('wg-lg-name')) el('wg-lg-name').textContent = (next.emoji||'✈️') + ' ' + next.name;
+    var departMs = Date.now() + Math.max(0,(cd.secs-90*60))*1000;
+    if (el('wg-lg-sub')) el('wg-lg-sub').textContent = '出発目安 ' + fmtT(new Date(departMs));
+  }
+
+  flights.forEach(function(res) {
+    // 搭乗券カード生成
+    var colors = [
+      'linear-gradient(135deg,#1a2a6c,#b21f1f)',
+      'linear-gradient(135deg,#0f2027,#203a43,#2c5364)',
+      'linear-gradient(135deg,#232526,#414345)',
+      'linear-gradient(135deg,#1D3557,#457B9D)',
+    ];
+    var colorIdx = (res.name || '').length % colors.length;
+
+    // バーコード生成（ランダムなバー幅）
+    var bars = '';
+    var seed = (res.id || '').split('').reduce(function(a,c){ return a + c.charCodeAt(0); }, 0);
+    for (var i = 0; i < 40; i++) {
+      seed = (seed * 1664525 + 1013904223) & 0xffffffff;
+      var w = (Math.abs(seed) % 4) + 1;
+      var gap = (Math.abs(seed >> 8) % 2) === 0;
+      bars += '<span style="width:' + w + 'px;height:' + (28 + (Math.abs(seed>>16)%14)) + 'px;' + (gap ? 'background:transparent;' : '') + '"></span>';
+    }
+
+    var dt = safeDate(res.dt);
+    var iataFrom = (res.subtitle||'').match(/([A-Z]{3})/);
+    var iataTo   = (res.addr||'').match(/([A-Z]{3})/);
+    var from = iataFrom ? iataFrom[1] : '出発';
+    var to   = iataTo   ? iataTo[1]   : '到着';
+    // 日本語から推定
+    if (!iataFrom) {
+      if ((res.subtitle||'').includes('神戸') || (res.subtitle||'').includes('大阪')) from = 'KIX';
+      if ((res.subtitle||'').includes('東京') || (res.subtitle||'').includes('羽田')) from = 'HND';
+      if ((res.subtitle||'').includes('福岡')) from = 'FUK';
+    }
+    if (!iataTo) {
+      if ((res.addr||'').includes('関西') || (res.addr||'').includes('大阪')) to = 'KIX';
+      if ((res.addr||'').includes('東京') || (res.addr||'').includes('羽田')) to = 'HND';
+      if ((res.addr||'').includes('那覇')) to = 'OKA';
+    }
+
+    var card = document.createElement('div');
+    card.className = 'bp-card';
+    card.innerHTML = '<div class="bp-inner" style="background:' + colors[colorIdx] + ';color:#fff;">'
+      + '<div class="bp-airline">✈ ' + escHtml(res.name).toUpperCase() + '</div>'
+      + '<div class="bp-route">'
+      + '<div class="bp-iata">' + from + '</div>'
+      + '<div class="bp-arrow">→</div>'
+      + '<div class="bp-iata">' + to + '</div>'
+      + '</div>'
+      + '<div class="bp-details">'
+      + '<div class="bp-field"><div class="bp-field-lbl">日付</div><div class="bp-field-val">' + (dt.getTime() ? fmtD(dt) : '--') + '</div></div>'
+      + '<div class="bp-field"><div class="bp-field-lbl">出発時刻</div><div class="bp-field-val">' + (dt.getTime() ? fmtT(dt) : '--') + '</div></div>'
+      + '<div class="bp-field"><div class="bp-field-lbl">座席</div><div class="bp-field-val">-- C</div></div>'
+      + '</div>'
+      + '<div class="bp-divider"></div>'
+      + '<div class="bp-barcode"><div class="bp-bar">' + bars + '</div></div>'
+      + '<div style="font-size:9px;color:rgba(255,255,255,0.5);text-align:center;margin-top:4px;letter-spacing:1px;">SCREETRIP PASS</div>'
+      + '</div>';
+    list.appendChild(card);
+
+    // Wallet追加ボタン
+    var addBtn = document.createElement('button');
+    addBtn.className = 'bp-add-wallet';
+    addBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" fill="white" fill-opacity="0.2"/><path d="M2 9h20" stroke="white" stroke-width="1.5"/><circle cx="16" cy="14" r="1.5" fill="white"/></svg>'
+      + (IS_PRO ? 'Apple Walletに追加' : '⭐ Pro: Walletに追加');
+    addBtn.addEventListener('click', function() {
+      if (!IS_PRO) { openProModal(); return; }
+      // 実機: PKAddPassesViewController を呼び出す
+      // .pkpass ファイルを生成してWKWebViewからネイティブに渡す
+      showToast('Walletに追加しました（実機で動作します）');
+    });
+    list.appendChild(addBtn);
+  });
+}
+
+function copyMailAddr() {
+  fallbackCopy('trips@screetrip.jp');
+  showToast('転送アドレスをコピーしました');
+}
+
+
+
+
+// ══════════════════════════════════════════════
+// JET LAG ENGINE
+// ══════════════════════════════════════════════
+
+var TZ_DB = [
+  {id:'JST',label:'日本（現在地）',offset:9,city:'Tokyo'},
+  {id:'HNL',label:'ハワイ（ホノルル）',offset:-10,city:'Honolulu'},
+  {id:'LAX',label:'ロサンゼルス',offset:-7,city:'Los Angeles'},
+  {id:'SFO',label:'サンフランシスコ',offset:-7,city:'San Francisco'},
+  {id:'YVR',label:'バンクーバー',offset:-7,city:'Vancouver'},
+  {id:'ORD',label:'シカゴ',offset:-5,city:'Chicago'},
+  {id:'JFK',label:'ニューヨーク',offset:-4,city:'New York'},
+  {id:'MIA',label:'マイアミ',offset:-4,city:'Miami'},
+  {id:'LHR',label:'ロンドン',offset:1,city:'London'},
+  {id:'CDG',label:'パリ',offset:2,city:'Paris'},
+  {id:'FRA',label:'フランクフルト',offset:2,city:'Frankfurt'},
+  {id:'AMS',label:'アムステルダム',offset:2,city:'Amsterdam'},
+  {id:'ZRH',label:'チューリッヒ',offset:2,city:'Zurich'},
+  {id:'FCO',label:'ローマ',offset:2,city:'Rome'},
+  {id:'MAD',label:'マドリード',offset:2,city:'Madrid'},
+  {id:'ATH',label:'アテネ',offset:3,city:'Athens'},
+  {id:'DXB',label:'ドバイ',offset:4,city:'Dubai'},
+  {id:'BOM',label:'ムンバイ',offset:5.5,city:'Mumbai'},
+  {id:'DEL',label:'デリー',offset:5.5,city:'Delhi'},
+  {id:'CMB',label:'コロンボ',offset:5.5,city:'Colombo'},
+  {id:'BKK',label:'バンコク',offset:7,city:'Bangkok'},
+  {id:'CGK',label:'ジャカルタ',offset:7,city:'Jakarta'},
+  {id:'SGN',label:'ホーチミン',offset:7,city:'Ho Chi Minh'},
+  {id:'KUL',label:'クアラルンプール',offset:8,city:'Kuala Lumpur'},
+  {id:'SIN',label:'シンガポール',offset:8,city:'Singapore'},
+  {id:'MNL',label:'マニラ',offset:8,city:'Manila'},
+  {id:'PEK',label:'北京',offset:8,city:'Beijing'},
+  {id:'HKG',label:'香港',offset:8,city:'Hong Kong'},
+  {id:'TPE',label:'台北',offset:8,city:'Taipei'},
+  {id:'ICN',label:'ソウル',offset:9,city:'Seoul'},
+  {id:'SYD',label:'シドニー',offset:11,city:'Sydney'},
+  {id:'MEL',label:'メルボルン',offset:11,city:'Melbourne'},
+  {id:'AKL',label:'オークランド',offset:13,city:'Auckland'},
+  {id:'GRU',label:'サンパウロ',offset:-3,city:'Sao Paulo'},
+  {id:'EZE',label:'ブエノスアイレス',offset:-3,city:'Buenos Aires'},
+  {id:'LIM',label:'リマ',offset:-5,city:'Lima'},
+  {id:'MEX',label:'メキシコシティ',offset:-5,city:'Mexico City'},
+  {id:'YYZ',label:'トロント',offset:-4,city:'Toronto'},
+  {id:'CAI',label:'カイロ',offset:2,city:'Cairo'},
+  {id:'NBO',label:'ナイロビ',offset:3,city:'Nairobi'},
+  {id:'JNB',label:'ヨハネスブルグ',offset:2,city:'Johannesburg'},
+  {id:'IST',label:'イスタンブール',offset:3,city:'Istanbul'},
+  {id:'TLV',label:'テルアビブ',offset:3,city:'Tel Aviv'},
+  {id:'RUH',label:'リヤド',offset:3,city:'Riyadh'},
+  {id:'DXB2',label:'アブダビ',offset:4,city:'Abu Dhabi'},
+  {id:'KHI',label:'カラチ',offset:5,city:'Karachi'},
+  {id:'THR',label:'テヘラン',offset:3.5,city:'Tehran'},
+  {id:'KTM',label:'カトマンズ',offset:5.75,city:'Kathmandu'},
+  {id:'RGN',label:'ヤンゴン',offset:6.5,city:'Yangon'},
+  {id:'PPT',label:'タヒチ（パペーテ）',offset:-10,city:'Papeete'},
+  {id:'SCL',label:'サンティアゴ',offset:-3,city:'Santiago'},
+  {id:'BOG',label:'ボゴタ',offset:-5,city:'Bogota'},
+  {id:'GYD',label:'バクー',offset:4,city:'Baku'},
+  {id:'NOU',label:'ヌーメア',offset:11,city:'Noumea'},
+];
+
+var HOME_OFFSET   = 9;
+var currentJlTz   = null;
+var jlAlarmSet    = {};
+var jlClockTimer  = null;
+
+function initJlSelect() {
+  var sel = el('jl-tz-select');
+  if (!sel || sel.options.length > 0) return;
+  TZ_DB.forEach(function(tz) {
+    var opt = document.createElement('option');
+    opt.value = tz.id;
+    opt.textContent = tz.label;
+    sel.appendChild(opt);
+  });
+  sel.value = 'LAX';
+}
+
+function onJlTzChange() {
+  var sel = el('jl-tz-select');
+  if (!sel) return;
+  currentJlTz = TZ_DB.find(function(t){ return t.id === sel.value; }) || TZ_DB[0];
+  buildJetLagSchedule(currentJlTz);
+}
+
+function detectTzFromReservations() {
+  var KW = {
+    'ロサンゼルス':'LAX','los angeles':'LAX','la ':' LAX',
+    'ニューヨーク':'JFK','new york':'JFK','jfk':'JFK',
+    'ロンドン':'LHR','london':'LHR','lhr':'LHR',
+    'パリ':'CDG','paris':'CDG','cdg':'CDG',
+    'シドニー':'SYD','sydney':'SYD','syd':'SYD',
+    'バンコク':'BKK','bangkok':'BKK','bkk':'BKK',
+    'シンガポール':'SIN','singapore':'SIN','sin':'SIN',
+    'ドバイ':'DXB','dubai':'DXB','dxb':'DXB',
+    'ハワイ':'HNL','honolulu':'HNL','hnl':'HNL',
+    'ニューデリー':'DEL','delhi':'DEL','デリー':'DEL',
+    'ムンバイ':'BOM','mumbai':'BOM',
+    'ジャカルタ':'CGK','jakarta':'CGK',
+    'バンクーバー':'YVR','vancouver':'YVR',
+    'サンフランシスコ':'SFO','san francisco':'SFO',
+    'イスタンブール':'IST','istanbul':'IST',
+    'カイロ':'CAI','cairo':'CAI',
+    'ソウル':'ICN','seoul':'ICN',
+    '北京':'PEK','beijing':'PEK','peking':'PEK',
+    'フランクフルト':'FRA','frankfurt':'FRA',
+    '台北':'TPE','taipei':'TPE',
+  };
+  var allText = reservations.map(function(r){
+    return ((r.name||'')+' '+(r.addr||'')+' '+(r.subtitle||'')).toLowerCase();
+  }).join(' ');
+  var found = null;
+  Object.keys(KW).forEach(function(kw){
+    if (!found && allText.indexOf(kw) >= 0) found = KW[kw];
+  });
+  return found;
+}
+
+function renderJetLag() {
+  initJlSelect();
+  var autoId = detectTzFromReservations();
+  var detected = false;
+  if (autoId) {
+    var tz = TZ_DB.find(function(t){ return t.id === autoId; });
+    if (tz) {
+      var s = el('jl-tz-select'); if (s) s.value = autoId;
+      currentJlTz = tz; detected = true;
+    }
+  }
+  if (!currentJlTz) {
+    currentJlTz = TZ_DB.find(function(t){ return t.id === 'LAX'; });
+    var s2 = el('jl-tz-select'); if (s2) s2.value = 'LAX';
+  }
+  var aEl = el('jl-auto-detected');
+  if (aEl) aEl.style.display = detected ? 'block' : 'none';
+  buildJetLagSchedule(currentJlTz);
+  startJlClock();
+}
+
+function startJlClock() {
+  if (jlClockTimer) clearInterval(jlClockTimer);
+  jlClockTimer = setInterval(updateJlClock, 1000);
+  updateJlClock();
+}
+
+function updateJlClock() {
+  var now = new Date();
+  var hh = el('jl-hour-hand'), hm = el('jl-min-hand');
+  if (!hh || !hm) return;
+  hh.style.transform = 'rotate(' + ((now.getHours()%12)*30 + now.getMinutes()*0.5) + 'deg)';
+  hm.style.transform = 'rotate(' + (now.getMinutes()*6) + 'deg)';
+  var btEl = el('jl-body-time');
+  if (btEl) btEl.textContent = '体内時計 ' + fmtT(now) + ' (JST)';
+  if (currentJlTz) {
+    var destMs = now.getTime() + (currentJlTz.offset - HOME_OFFSET) * 3600000;
+    var destD  = new Date(destMs);
+    var dtEl = el('jl-dest-time'); if (dtEl) dtEl.textContent = '現地時刻 ' + fmtT(destD) + ' (' + currentJlTz.id + ')';
+    var lnEl = el('jl-local-now'); if (lnEl) lnEl.textContent = fmtT(destD);
+  }
+}
+
+function fmt2d(h) { h=((Math.round(h)%24)+24)%24; return ('0'+h).slice(-2); }
+
+function fmtDateShort(d) {
+  if (!d||isNaN(d.getTime())) return '--月--日';
+  return (d.getMonth()+1)+'月'+d.getDate()+'日（'+['日','月','火','水','木','金','土'][d.getDay()]+'）';
+}
+
+function buildJetLagSchedule(tz) {
+  if (!tz) return;
+  var diff = tz.offset - HOME_OFFSET;
+  var absDiff = Math.abs(diff);
+  var direction = diff > 0 ? 'east' : 'west';
+  if (absDiff < 1) { renderNoJetLag(tz); return; }
+  var adaptDays = Math.min(direction==='east' ? Math.ceil(absDiff*1.5) : Math.ceil(absDiff), 14);
+
+  var badge = el('jl-diff-badge');
+  if (badge) {
+    badge.textContent = '時差 ' + (diff>=0?'+':'') + diff + '時間';
+    badge.style.color = absDiff>=9?'var(--red)':absDiff>=5?'var(--ylw)':'var(--acc)';
+    badge.style.background = absDiff>=9?'rgba(255,77,106,0.15)':absDiff>=5?'rgba(255,181,71,0.12)':'rgba(91,142,255,0.12)';
+  }
+  var sumEl = el('jl-summary');
+  if (sumEl) {
+    var sev = absDiff>=9?'重度':absDiff>=5?'中程度':'軽度';
+    var dirL = direction==='east'?'東向き（ヨーロッパ・中東方面: やや難しい）':'西向き（アメリカ・ハワイ方面: 比較的適応しやすい）';
+    sumEl.innerHTML = '<b style="color:var(--t1);">' + sev + 'の時差ぼけ</b> / ' + dirL
+      + '<br>適切な対策で <b style="color:var(--acc);">' + adaptDays + '日</b> で完全適応できます。'
+      + '機内から対策を開始すると最大40%早く回復します。';
+  }
+
+  var pbEl = el('jl-phase-bar');
+  if (pbEl) {
+    pbEl.innerHTML = '';
+    var phColors = ['#FF4D6A','#FF7A45','#FFB547','#7EC8A0','#00D68F'];
+    var n = Math.min(adaptDays,5);
+    for (var i=0;i<n;i++) {
+      var seg=document.createElement('div'); seg.className='jl-phase-seg';
+      seg.style.width=(100/n)+'%'; seg.style.background=phColors[i]||'#00D68F';
+      seg.style.opacity=0.3+(i/n)*0.7; pbEl.appendChild(seg);
+    }
+  }
+  var pEl = el('jl-adapt-pct');
+  if (pEl) pEl.textContent = '0% → 100%（'+adaptDays+'日後）';
+
+  var schedList = el('jl-schedule-list');
+  if (!schedList) return;
+  schedList.innerHTML = '';
+
+  var flightRes = reservations.find(function(r){ return r.type==='flight'; });
+  var flightDate = flightRes ? safeDate(flightRes.dt) : new Date(Date.now()+86400000);
+  var days = [
+    {label:'出発2日前',daysOffset:-2,phase:'pre'},
+    {label:'出発前日',daysOffset:-1,phase:'pre'},
+    {label:'出発当日（機内）',daysOffset:0,phase:'flight'},
+  ];
+  for (var d=1;d<=Math.min(adaptDays,5);d++) {
+    days.push({label:'現地到着後 Day '+d,daysOffset:d,phase:'arrive'});
+  }
+
+  days.forEach(function(day, dayIdx) {
+    var baseDate = new Date(flightDate.getTime()+day.daysOffset*86400000);
+    var events = computeDayEvents(day.phase, dayIdx, diff, direction, absDiff);
+
+    var sec = document.createElement('div'); sec.className='jl-schedule-day';
+    var pc = day.phase==='pre'?'#5B8EFF':day.phase==='flight'?'#FFB547':'#00D68F';
+    var pi = day.phase==='pre'?'📅':day.phase==='flight'?'✈️':'🌍';
+    var hdr = document.createElement('div'); hdr.className='jl-day-header';
+    hdr.innerHTML = '<div class="jl-day-badge" style="background:'+pc+'18;color:'+pc+';">'+pi+'</div>'
+      +'<div style="flex:1;"><div style="font-size:13px;font-weight:600;">'+day.label+'</div>'
+      +'<div style="font-size:11px;color:var(--t3);">'+fmtDateShort(baseDate)+'</div></div>';
+    sec.appendChild(hdr);
+
+    events.forEach(function(evt) {
+      var evEl=document.createElement('div'); evEl.className='jl-event';
+      var alarmable = evt.type==='sleep'||evt.type==='wake'||evt.type==='melatonin';
+      var tagHtml='<div class="jl-event-tag" style="background:'+evt.tagBg+';color:'+evt.tagColor+';">'+evt.tag+'</div>';
+      var alarmHtml='';
+      if (alarmable) {
+        var aid='jl_'+dayIdx+'_'+evt.type+'_'+evt.time.replace(':','');
+        var isSet=!!jlAlarmSet[aid];
+        alarmHtml='<button class="jl-alarm-btn" data-alarm-id="'+aid+'" data-alarm-time="'+evt.time+'" data-alarm-label="'+escHtml(evt.label)+'"'
+          +' style="background:'+(isSet?evt.tagBg:'transparent')+';border-color:'+evt.tagColor+';color:'+evt.tagColor+';"'
+          +' onclick="toggleJlAlarm(this)">'+(isSet?'🔔 セット済み':'⏰ アラームをセット')+'</button>';
+      }
+      evEl.innerHTML='<div class="jl-event-time">'+evt.time+'</div>'
+        +'<div class="jl-event-dot" style="background:'+evt.dotColor+';"></div>'
+        +'<div class="jl-event-body">'
+        +'<div class="jl-event-label">'+escHtml(evt.label)+'</div>'
+        +'<div class="jl-event-note">'+escHtml(evt.note)+'</div>'
+        +tagHtml+alarmHtml+'</div>';
+      sec.appendChild(evEl);
+    });
+    schedList.appendChild(sec);
+  });
+  renderJlTips(direction, diff, absDiff, tz);
+}
+
+function computeDayEvents(phase, dayIdx, diff, direction, absDiff) {
+  var events=[], H_SLEEP=23, H_WAKE=7;
+  var shiftRate = direction==='east' ? 1.5 : 1.0;
+
+  if (phase==='pre') {
+    var dBefore = dayIdx===0 ? 2 : 1;
+    var shift = (2-dBefore)*shiftRate;
+    var sleepH = direction==='east' ? H_SLEEP-shift : H_SLEEP+shift;
+    var wakeH  = direction==='east' ? H_WAKE-shift  : H_WAKE+shift;
+    sleepH=((sleepH%24)+24)%24; wakeH=((wakeH%24)+24)%24;
+    events.push({time:fmt2d(wakeH)+':00',label:'起床（予備適応）',
+      note:'体内時計を'+(direction==='east'?'早める':'遅らせる')+'。通常より'+Math.round(shift*60)+'分'+(direction==='east'?'早い':'遅い'),
+      type:'wake',dotColor:'#FFB547',tag:'起床',tagBg:'rgba(255,181,71,0.15)',tagColor:'#FFB547'});
+    if (direction==='east') {
+      events.push({time:fmt2d(wakeH)+':30',label:'朝日を30分浴びる',
+        note:'窓から直射日光。体内時計前進に最も効果的',
+        type:'light',dotColor:'#FFD700',tag:'光療法',tagBg:'rgba(255,215,0,0.15)',tagColor:'#FFD700'});
+    }
+    var melaH=((sleepH-0.75+24)%24);
+    events.push({time:fmt2d(melaH)+':45',label:'メラトニン服用 (0.5mg)',
+      note:'就寝45分前に少量。急に多量を飲まない',
+      type:'melatonin',dotColor:'#A78BFA',tag:'メラトニン',tagBg:'rgba(167,139,250,0.15)',tagColor:'#A78BFA'});
+    events.push({time:fmt2d(sleepH)+':00',label:'就寝',
+      note:'体内時計調整のため通常より'+Math.round(shift*60)+'分'+(direction==='east'?'早く':'遅く')+'就寝',
+      type:'sleep',dotColor:'#5B8EFF',tag:'睡眠',tagBg:'rgba(91,142,255,0.15)',tagColor:'#5B8EFF'});
+
+  } else if (phase==='flight') {
+    events.push({time:'離陸前',label:'時計を現地時刻に合わせる',
+      note:'スマホ・腕時計を目的地時刻に変更。心理的適応を促す',
+      type:'info',dotColor:'#FFB547',tag:'推奨',tagBg:'rgba(255,181,71,0.12)',tagColor:'#FFB547'});
+    if (absDiff>=5) {
+      events.push({time:'機内',label:'機内でのカフェイン禁止',
+        note:'コーヒー・紅茶はNG。水・ハーブティーで水分補給。脱水は時差ぼけを悪化',
+        type:'caffeine',dotColor:'#B47840',tag:'カフェイン禁止',tagBg:'rgba(180,120,60,0.12)',tagColor:'#B47840'});
+    }
+    var destNightJst=((22-diff)%24+24)%24;
+    events.push({time:fmt2d(destNightJst)+':00',label:'機内就寝（現地22時相当）',
+      note:'耳栓・アイマスク・ネックピローを活用。目的地の夜に合わせて眠る',
+      type:'sleep',dotColor:'#5B8EFF',tag:'機内睡眠',tagBg:'rgba(91,142,255,0.15)',tagColor:'#5B8EFF'});
+    var preArrivalJst=((21.25-diff)%24+24)%24;
+    events.push({time:fmt2d(preArrivalJst)+':15',label:'メラトニン服用（着陸45分前）',
+      note:'現地が夜の時間帯に着陸する場合のみ服用。0.5〜1mg少量で',
+      type:'melatonin',dotColor:'#A78BFA',tag:'メラトニン',tagBg:'rgba(167,139,250,0.15)',tagColor:'#A78BFA'});
+
+  } else {
+    var arrDay = dayIdx-2;
+    var wakeJst  = ((7  - diff)%24+24)%24;
+    var lightH   = direction==='east' ? 7 : 20;
+    var lightJst = ((lightH - diff)%24+24)%24;
+    var cafJst   = ((14 - diff)%24+24)%24;
+    var melJst   = ((22.25 - diff)%24+24)%24;
+    var sleepJst = ((23 - diff)%24+24)%24;
+    var mg = arrDay<=2 ? '3mg' : '1mg';
+
+    events.push({time:fmt2d(wakeJst)+':00',
+      label:'起床（現地07:00）',
+      note:arrDay<=2?'最も辛い日です。眠くても必ず起きてください':arrDay<=4?'体内時計が徐々に合ってきています':'もう少しで完全適応！',
+      type:'wake',dotColor:'#FFB547',tag:'起床',tagBg:'rgba(255,181,71,0.15)',tagColor:'#FFB547'});
+
+    events.push({time:fmt2d(lightJst)+':00',
+      label: direction==='east'?'朝日を浴びる（30分）':'夕方の光を浴びる（30分）',
+      note: direction==='east'?'朝の自然光が体内時計を前進させる最重要アクション':'夕方の光で体内時計を後退させる。屋外に30分以上',
+      type:'light',dotColor:'#FFD700',tag:'光療法',tagBg:'rgba(255,215,0,0.15)',tagColor:'#FFD700'});
+
+    events.push({time:fmt2d(cafJst)+':00',
+      label:'カフェイン終了（現地14:00）',
+      note:'これ以降のカフェインは6時間後の睡眠を著しく妨害します',
+      type:'caffeine',dotColor:'#B47840',tag:'カフェイン注意',tagBg:'rgba(180,120,60,0.12)',tagColor:'#B47840'});
+
+    events.push({time:fmt2d(melJst)+':15',
+      label:'メラトニン服用（'+mg+'）',
+      note:'就寝45分前。Day'+arrDay+' は '+mg+' を推奨。光の少ない部屋で服用',
+      type:'melatonin',dotColor:'#A78BFA',tag:'メラトニン',tagBg:'rgba(167,139,250,0.15)',tagColor:'#A78BFA'});
+
+    events.push({time:fmt2d(sleepJst)+':00',
+      label:'就寝（現地23:00）',
+      note:'眠れなくてもベッドに横になる。スマホのブルーライト厳禁。暗室で',
+      type:'sleep',dotColor:'#5B8EFF',tag:'睡眠',tagBg:'rgba(91,142,255,0.15)',tagColor:'#5B8EFF'});
+  }
+  return events;
+}
+
+function renderJlTips(direction, diff, absDiff, tz) {
+  var melaEl=el('jl-melatonin-body');
+  if (melaEl) {
+    melaEl.innerHTML='• <b>服用量:</b> 0.5〜3mg（初日3mg、以降1mgに減らす）<br>'
+      +'• <b>タイミング:</b> 目的地の就寝45分前に服用<br>'
+      +'• <b>出発前夜:</b> '+(direction==='east'?'就寝45分前に0.5mgで体内時計を前進させる':'翌朝の起床後に0.5mgは禁止。夜のみ服用'  )+'<br>'
+      +'• <b>注意:</b> 日本では医薬品。渡航先（米国等）では薬局で購入可能。医師相談推奨';
+  }
+  var lEl=el('jl-light-body');
+  if (lEl) {
+    if (direction==='east') {
+      lEl.innerHTML='• <b>東向き（→欧米東海岸・欧州）の光ルール:</b><br>'
+        +'　現地の朝7〜9時に30分以上の屋外で自然光を浴びる<br>'
+        +'　機内では着陸2時間前にブラインドを開ける<br>'
+        +'• <b>避けるべき光:</b> '+tz.city+'の午後〜夕方の強い光は体内時計を逆行させる';
+    } else {
+      lEl.innerHTML='• <b>西向き（→ハワイ・アメリカ西海岸）の光ルール:</b><br>'
+        +'　現地の夕方17〜20時に30分以上屋外で光を浴びる<br>'
+        +'　出発前日の日本の朝は強い光を浴びてから搭乗する<br>'
+        +'• <b>避けるべき光:</b> '+tz.city+'の早朝の光は逆効果になる場合がある';
+    }
+  }
+  var cEl=el('jl-caffeine-body');
+  if (cEl) {
+    cEl.innerHTML='• <b>出発前日:</b> 通常通り可（21時まで）<br>'
+      +'• <b>機内:</b> 完全禁止推奨（脱水 + リズム乱れを防ぐ）<br>'
+      +'• <b>現地到着後:</b> 現地時刻09〜14時のみOK<br>'
+      +'• <b>時差'+absDiff+'時間の場合:</b> '+(absDiff>=9?'到着後3日間はコーヒー1杯まで制限推奨':'到着後2日間は午前中のみ摂取');
+  }
+}
+
+function renderNoJetLag(tz) {
+  var b=el('jl-diff-badge'); if(b){b.textContent='時差±1時間以内';b.style.color='var(--grn)';b.style.background='rgba(0,214,143,0.12)';}
+  var s=el('jl-summary'); if(s) s.innerHTML='<b style="color:var(--grn);">時差ぼけの心配はほぼありません。</b><br>'+escHtml(tz.label)+'との時差は1時間未満です。通常通りの生活リズムで大丈夫です。';
+  var sl=el('jl-schedule-list'); if(sl) sl.innerHTML='<div style="padding:20px 16px;text-align:center;color:var(--t3);font-size:13px;">✅ 対策スケジュールは不要です</div>';
+  var pb=el('jl-phase-bar'); if(pb) pb.innerHTML='<div class="jl-phase-seg" style="width:100%;background:var(--grn);"></div>';
+  var pp=el('jl-adapt-pct'); if(pp) pp.textContent='100%（対策不要）';
+}
+
+function toggleJlAlarm(btn) {
+  var aid=btn.dataset.alarmId, atime=btn.dataset.alarmTime, alabel=btn.dataset.alarmLabel;
+  if (jlAlarmSet[aid]) {
+    delete jlAlarmSet[aid];
+    btn.textContent='⏰ アラームをセット';
+    btn.style.background='transparent';
+    showToast('アラームを解除しました');
+  } else {
+    jlAlarmSet[aid]={time:atime,label:alabel};
+    btn.textContent='🔔 セット済み';
+    btn.style.background=btn.style.borderColor+'20';
+    showToast('⏰ '+alabel+' ('+atime+') をセット');
+    scheduleJlAlarm(aid, atime, alabel);
+  }
+}
+
+function scheduleJlAlarm(id, timeStr, label) {
+  var parts=timeStr.split(':');
+  if (parts.length<2) return;
+  var h=parseInt(parts[0],10), m=parseInt(parts[1],10);
+  if (isNaN(h)||isNaN(m)) return;
+  var now=new Date();
+  var target=new Date(now.getFullYear(),now.getMonth(),now.getDate(),h,m,0);
+  if (target<=now) target.setDate(target.getDate()+1);
+  var ms=target.getTime()-Date.now();
+  setTimeout(function(){
+    if (!jlAlarmSet[id]) return;
+    fireJlAlarm(label,timeStr);
+  }, ms);
+}
+
+function fireJlAlarm(label, time) {
+  el('alarm-title').textContent='⏰ 時差対策アラーム';
+  el('alarm-body').textContent=label+'\n('+time+' 設定)\n概日リズム調整のため今すぐ行動してください';
+  el('alarm-overlay').classList.add('on');
+  try {
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if (!AC) return;
+    var ctx=new AC();
+    var beep=function(freq,dur,start){
+      var osc=ctx.createOscillator(),g=ctx.createGain();
+      osc.connect(g);g.connect(ctx.destination);
+      osc.type='sine';osc.frequency.value=freq;
+      g.gain.setValueAtTime(0.7,ctx.currentTime+start);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+start+dur);
+      osc.start(ctx.currentTime+start);osc.stop(ctx.currentTime+start+dur);
+    };
+    var cnt=0;
+    var chime=function(){
+      if (!el('alarm-overlay').classList.contains('on')) return;
+      beep(523,0.3,0.0);beep(659,0.3,0.35);beep(784,0.5,0.7);
+      cnt++; if(cnt<5) setTimeout(chime,1800);
+    };
+    chime();
+  } catch(e) {}
+}
+
+
+
+// ══════════════════════════════════════════════
+// MAPKIT JS ENGINE
+// ══════════════════════════════════════════════
+// MapKit JS 公式: https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js
+// 認証: JWT (ES256) — Apple Developer Console で発行
+// Token Maker: https://maps.developer.apple.com/token-maker
+// ══════════════════════════════════════════════
+
+var mkMap            = null;   // mapkit.Map インスタンス
+var mkSearchObj      = null;   // mapkit.Search インスタンス
+var mkGeocoderObj    = null;   // mapkit.Geocoder インスタンス
+var mkAnnotations    = [];     // 現在のアノテーション一覧
+var currentMapAnnotation = null; // タップされたアノテーション
+var mkMapStyle       = 'standard';
+var mkJwtToken       = '';
+var mkInitialized    = false;
+var mkSearchDebounce = null;
+
+// ── JWT トークン取得（localStorage / env変数 / 手動入力の順） ──
+function getMapKitToken() {
+  // 1. localStorage から取得（設定画面で更新したトークン優先）
+  try { var t = localStorage.getItem('screetrip_mapkit_token'); if (t) return t; } catch(e) {}
+  // 2. Vercel環境変数（ビルド時に埋め込み）
+  if (typeof MAPKIT_JWT_TOKEN !== 'undefined' && MAPKIT_JWT_TOKEN) return MAPKIT_JWT_TOKEN;
+  // 3. ビルド済みトークン（有効期限: 2026-10-17）
+  return "eyJhbGciOiJFUzI1NiIsImtpZCI6Ik01UTc5UDZUNzMiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJRVzNYUzIzQzhDIiwiaWF0IjoxNzc2Nzg2OTM3LCJleHAiOjE3OTIzMzg5MzcsIm9yaWdpbiI6Imh0dHBzOi8vc2NyZWV0cmlwLnZlcmNlbC5hcHAifQ.61CR3qqiBX7_eBXQgFcV3kYiRcrAQr7LalqfiSGucw7N8HU_YGXjJNy5CSJOWgmoCfPpvZ6vQ40eix2-yMo5Mg";
+}
+
+function saveMapKitToken(token) {
+  mkJwtToken = token;
+  try { localStorage.setItem('screetrip_mapkit_token', token); } catch(e) {}
+}
+
+// ── MapKit JS 初期化 ──
+function initMapKit(token) {
+  if (!token) { showMapFallback(); return; }
+  // MapKit JS のロード完了を待つ
+  if (typeof mapkit === 'undefined' || !window._mapKitReady) {
+    window._mapKitPendingInit = function() { initMapKit(token); };
+    setTimeout(function() {
+      if (typeof mapkit !== 'undefined') initMapKit(token);
+    }, 500);
+    return;
+  }
+  try {
+    // data-initial-token で自動初期化済みの場合はskip
+    if (mapkit.loadedLibraries && mapkit.loadedLibraries.length > 0) {
+      mkInitialized = true;
+      mkJwtToken = token;
+      buildMapInstance();
+      return;
+    }
+    mapkit.init({
+      authorizationCallback: function(done) { done(token); },
+      language: 'ja'
+    });
+    mkInitialized = true;
+    mkJwtToken = token;
+    buildMapInstance();
+  } catch(e) {
+    console.warn('MapKit init error:', e.message);
+    // 初期化済みエラーは無視してインスタンス生成
+    if (e.message && e.message.includes('already')) {
+      mkInitialized = true;
+      mkJwtToken = token;
+      buildMapInstance();
+    } else {
+      showMapFallback();
+    }
+  }
+}
+
+function initMapKitWithToken() {
+  var input = el('mapkit-token-input');
+  var token = input ? input.value.trim() : '';
+  if (!token) { showToast('トークンを入力してください'); return; }
+  saveMapKitToken(token);
+  el('mapkit-fallback').style.display = 'none';
+  el('mapkit-wrap').style.display = 'flex';
+  initMapKit(token);
+}
+
+function showMapFallback() {
+  var fb = el('mapkit-fallback'), ww = el('mapkit-wrap');
+  if (fb) fb.style.display = 'flex';
+  if (ww) ww.style.display = 'none';
+}
+
+// ── Map インスタンス生成 ──
+function buildMapInstance() {
+  var container = el('mapkit-container');
+  if (!container || !mkInitialized) return;
+
+  // 既存マップを破棄
+  if (mkMap) { try { mkMap.destroy(); } catch(e){} mkMap = null; }
+
+  mkMap = new mapkit.Map(container, {
+    colorScheme: mapkit.Map.ColorSchemes.Dark,
+    mapType: getMapType(mkMapStyle),
+    showsUserLocation: true,
+    showsUserLocationControl: true,
+    showsZoomControl: true,
+    showsCompass: mapkit.FeatureVisibility.Adaptive,
+    padding: new mapkit.Padding({ top: 110, right: 12, bottom: 80, left: 12 }),
+  });
+
+  mkSearchObj   = new mapkit.Search({ language: 'ja', includePointsOfInterest: true });
+  mkGeocoderObj = new mapkit.Geocoder({ language: 'ja' });
+
+  // アノテーションタップイベント
+  mkMap.addEventListener('select', function(e) {
+    if (e.annotation) showPinCard(e.annotation);
+  });
+  mkMap.addEventListener('deselect', function() { closePinCard(); });
+
+  // 予約からピンを自動配置
+  plotReservationPins();
+}
+
+// ── マップタイプ変換 ──
+function getMapType(style) {
+  if (typeof mapkit === 'undefined') return null;
+  var types = {
+    standard:  mapkit.Map.MapTypes.Standard,
+    hybrid:    mapkit.Map.MapTypes.Hybrid,
+    satellite: mapkit.Map.MapTypes.Satellite,
+  };
+  return types[style] || types.standard;
+}
+
+// ── 予約データからピン自動配置 ──
+function plotReservationPins(targetRes) {
+  if (!mkMap || !mkInitialized) return;
+
+  // 既存ピンを全削除
+  mkMap.removeAnnotations(mkAnnotations);
+  mkAnnotations = [];
+
+  var list = targetRes ? [targetRes] : reservations;
+  var geocodeCount = 0;
+
+  list.forEach(function(res) {
+    // 住所がある予約をジオコーディング
+    var addr = res.addr || res.name;
+    if (!addr) return;
+    geocodeCount++;
+    mkGeocoderObj.lookup(addr, function(err, data) {
+      if (err || !data.results || data.results.length === 0) return;
+      var loc = data.results[0].coordinate;
+      addResAnnotation(res, loc);
+    });
+  });
+
+  if (geocodeCount === 0 && list.length > 0) {
+    // ジオコーディング対象なし → 日本中心に
+    mkMap.region = new mapkit.CoordinateRegion(
+      new mapkit.Coordinate(35.6762, 139.6503),
+      new mapkit.CoordinateSpan(5, 5)
+    );
+  }
+}
+
+// ── 予約アノテーション追加 ──
+function addResAnnotation(res, coord) {
+  if (!mkMap) return;
+  var ti = getTypeInfo(res.type);
+  var color = res.color || ti.color;
+
+  var ann = new mapkit.MarkerAnnotation(coord, {
+    title:    res.name || '',
+    subtitle: res.addr || '',
+    color:    color,
+    glyphText: res.emoji || ti.emoji,
+    // カスタムコールアウト
+    callout: {
+      calloutElementForAnnotation: function(annotation) {
+        var div = document.createElement('div');
+        div.className = 'map-annotation-callout';
+        div.innerHTML = '<div style="font-size:13px;font-weight:600;margin-bottom:2px;">'
+          + escHtml(annotation.title) + '</div>'
+          + '<div style="font-size:11px;color:rgba(240,240,250,0.6);">'
+          + escHtml(annotation.subtitle) + '</div>'
+          + '<div style="font-size:11px;color:' + color + ';margin-top:4px;">📍 タップで詳細</div>';
+        return div;
+      }
+    }
+  });
+
+  // 予約データをアノテーションに紐付け
+  ann._resData = res;
+  mkAnnotations.push(ann);
+  mkMap.addAnnotation(ann);
+
+  // 複数ピンがある場合は全体が見えるよう調整
+  if (mkAnnotations.length > 1) {
+    try { mkMap.showItems(mkAnnotations); } catch(e) {}
+  } else {
+    mkMap.setCenterAnimated(coord, true);
+    mkMap.setRegionAnimated(
+      new mapkit.CoordinateRegion(coord, new mapkit.CoordinateSpan(0.05, 0.05)), true
+    );
+  }
+}
+
+// ── 検索オートコンプリート ──
+function onMapSearchInput(val) {
+  clearTimeout(mkSearchDebounce);
+  if (!val || val.length < 2) { hideAutocomplete(); return; }
+  mkSearchDebounce = setTimeout(function() {
+    if (!mkSearchObj || !mkInitialized) {
+      // MapKit未初期化 → フォールバック検索
+      showFallbackAutocomplete(val);
+      return;
+    }
+    mkSearchObj.autocomplete(val, function(err, data) {
+      if (err || !data.results) return;
+      showAutocomplete(data.results.slice(0, 6));
+    });
+  }, 280);
+}
+
+function showAutocomplete(results) {
+  var ac = el('map-autocomplete');
+  if (!ac) return;
+  ac.innerHTML = '';
+  results.forEach(function(r) {
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:10px 14px;border-bottom:1px solid var(--bdr);cursor:pointer;display:flex;align-items:center;gap:8px;';
+    item.innerHTML = '<span style="font-size:14px;flex-shrink:0;">📍</span>'
+      + '<div class="f1"><div style="font-size:13px;font-weight:500;">' + escHtml(r.displayLines[0]||r.completionText||'') + '</div>'
+      + '<div style="font-size:11px;color:var(--t2);">' + escHtml((r.displayLines[1]||'')) + '</div></div>';
+    item.addEventListener('click', function() {
+      var inp = el('map-search-input');
+      if (inp) inp.value = r.displayLines[0] || r.completionText || '';
+      hideAutocomplete();
+      doMapSearchWithQuery(r.displayLines[0] || r.completionText || '');
+    });
+    item.addEventListener('mouseenter', function(){ this.style.background='rgba(91,142,255,0.08)'; });
+    item.addEventListener('mouseleave', function(){ this.style.background=''; });
+    ac.appendChild(item);
+  });
+  if (results.length > 0) ac.style.display = 'block';
+}
+
+// MapKit未初期化時のフォールバック候補（予約データから）
+function showFallbackAutocomplete(val) {
+  var q = val.toLowerCase();
+  var matches = reservations.filter(function(r) {
+    return (r.name||'').toLowerCase().includes(q) || (r.addr||'').toLowerCase().includes(q);
+  }).slice(0, 5);
+  if (matches.length === 0) { hideAutocomplete(); return; }
+  var ac = el('map-autocomplete');
+  if (!ac) return;
+  ac.innerHTML = '';
+  matches.forEach(function(r) {
+    var ti = getTypeInfo(r.type);
+    var item = document.createElement('div');
+    item.style.cssText = 'padding:10px 14px;border-bottom:1px solid var(--bdr);cursor:pointer;display:flex;align-items:center;gap:8px;';
+    item.innerHTML = '<span style="font-size:14px;flex-shrink:0;">'+(r.emoji||ti.emoji)+'</span>'
+      + '<div class="f1"><div style="font-size:13px;font-weight:500;">' + escHtml(r.name) + '</div>'
+      + '<div style="font-size:11px;color:var(--t2);">' + escHtml(r.addr||'') + '</div></div>';
+    item.addEventListener('click', function() {
+      var inp = el('map-search-input'); if (inp) inp.value = r.name;
+      hideAutocomplete();
+      openMapWithRes(r);
+    });
+    ac.appendChild(item);
+  });
+  ac.style.display = 'block';
+}
+
+function hideAutocomplete() {
+  var ac = el('map-autocomplete'); if (ac) ac.style.display = 'none';
+}
+
+// ── 検索実行 ──
+function doMapSearch() {
+  var inp = el('map-search-input');
+  if (!inp) return;
+  doMapSearchWithQuery(inp.value.trim());
+}
+
+function doMapSearchWithQuery(query) {
+  if (!query) return;
+  hideAutocomplete();
+  if (!mkSearchObj || !mkInitialized) {
+    // 未初期化 → Apple Maps / Google Maps URLで外部検索
+    var enc = encodeURIComponent(query);
+    if (/iphone|ipad|ipod|mac/i.test(navigator.userAgent)) {
+      window.location.href = 'maps://?q=' + enc;
+    } else {
+      window.open('https://www.google.com/maps/search/' + enc, '_blank');
+    }
+    return;
+  }
+  mkSearchObj.search(query, function(err, data) {
+    if (err || !data.places || data.places.length === 0) {
+      showToast('検索結果が見つかりませんでした');
+      return;
+    }
+    // 最初の結果にジャンプ
+    var place = data.places[0];
+    var coord = place.coordinate;
+    mkMap.removeAnnotations(mkAnnotations);
+    mkAnnotations = [];
+
+    var ann = new mapkit.MarkerAnnotation(coord, {
+      title:    place.name || query,
+      subtitle: place.formattedAddress || '',
+      color:    '#5B8EFF',
+      glyphText: '📍'
+    });
+    ann._searchResult = { name: place.name, addr: place.formattedAddress, coord: coord };
+    mkAnnotations.push(ann);
+    mkMap.addAnnotation(ann);
+    mkMap.setCenterAnimated(coord, true);
+    mkMap.setRegionAnimated(
+      new mapkit.CoordinateRegion(coord, new mapkit.CoordinateSpan(0.02, 0.02)), true
+    );
+    // 複数結果があれば追加
+    data.places.slice(1, 5).forEach(function(p) {
+      if (!p.coordinate) return;
+      var a2 = new mapkit.MarkerAnnotation(p.coordinate, {
+        title: p.name || '', subtitle: p.formattedAddress || '',
+        color: '#8899AA', glyphText: '📍'
+      });
+      a2._searchResult = { name: p.name, addr: p.formattedAddress, coord: p.coordinate };
+      mkAnnotations.push(a2);
+      mkMap.addAnnotation(a2);
+    });
+  });
+}
+
+// ── 予約からマップを開く ──
+function openMapWithRes(res) {
+  showTab('pg-map');
+  el('map-page-title').textContent = res.name || 'マップ';
+  var inp = el('map-search-input');
+  if (inp) inp.value = res.addr || res.name || '';
+  if (mkMap && mkInitialized) {
+    // 既存ピンをクリアして目的地1件表示
+    plotReservationPins(res);
+    // ルートバー表示
+    showRouteBar(res);
+  } else {
+    // 未初期化 → 外部マップ起動
+    openAmap();
+  }
+}
+
+// ── ルートバー ──
+function showRouteBar(res) {
+  var ti = getTypeInfo(res.type);
+  var cd = countdown(safeDate(res.dt));
+  el('map-route-icon').textContent = res.emoji || ti.emoji;
+  el('map-route-title').textContent = res.name + ' — ' + fmtT(safeDate(res.dt));
+  el('map-route-sub').textContent   = (res.addr||'') + '  残り ' + cd.label;
+  el('map-route-bar').style.display = 'flex';
+  el('map-route-bar')._res = res;
+}
+
+function closeRouteBar() { el('map-route-bar').style.display = 'none'; }
+
+function openInMaps() {
+  var res = el('map-route-bar')._res;
+  if (!res) return;
+  currentDetailRes = res;
+  openAmap();
+}
+
+// ── ピンカード ──
+function showPinCard(annotation) {
+  currentMapAnnotation = annotation;
+  var res = annotation._resData;
+  var sr  = annotation._searchResult;
+  var name = (res ? res.name : null) || (sr ? sr.name : null) || annotation.title || '---';
+  var addr = (res ? res.addr : null) || (sr ? sr.addr : null) || annotation.subtitle || '';
+  var emoji = res ? (res.emoji || getTypeInfo(res.type).emoji) : '📍';
+
+  el('mpc-emoji').textContent = emoji;
+  el('mpc-name').textContent  = name;
+  el('mpc-addr').textContent  = addr;
+
+  // チップ（残り時間・日時）
+  var chips = el('mpc-chips'); chips.innerHTML = '';
+  if (res) {
+    var cd = countdown(safeDate(res.dt));
+    var chip1 = document.createElement('div');
+    chip1.style.cssText = 'padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(91,142,255,0.12);color:var(--acc);';
+    chip1.textContent = fmtT(safeDate(res.dt));
+    var chip2 = document.createElement('div');
+    chip2.style.cssText = 'padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:' + (cd.urgent?'rgba(255,77,106,0.1)':'rgba(0,214,143,0.08)') + ';color:' + (cd.urgent?'var(--red)':'var(--grn)') + ';';
+    chip2.textContent = '残り ' + cd.label;
+    chips.appendChild(chip1); chips.appendChild(chip2);
+  }
+
+  el('map-pin-card').classList.add('open');
+}
+
+function closePinCard() {
+  el('map-pin-card').classList.remove('open');
+  currentMapAnnotation = null;
+}
+
+function copyAnnotationAddr() {
+  if (!currentMapAnnotation) return;
+  var addr = (currentMapAnnotation._resData ? currentMapAnnotation._resData.addr : null)
+          || currentMapAnnotation.subtitle || '';
+  if (addr) { fallbackCopy(addr); showToast('住所をコピーしました'); }
+}
+
+function setMapDest(annotation) {
+  if (!annotation) return;
+  var res = annotation._resData;
+  if (res) { currentDetailRes = res; openAmap(); }
+  else {
+    var addr = (annotation._searchResult ? annotation._searchResult.addr : null) || annotation.subtitle || annotation.title;
+    if (addr) {
+      var enc = encodeURIComponent(addr);
+      if (/iphone|ipad|ipod|mac/i.test(navigator.userAgent)) {
+        window.location.href = 'maps://?daddr=' + enc + '&dirflg=r';
+      } else {
+        window.open('https://www.google.com/maps/dir/?api=1&destination=' + enc, '_blank');
+      }
+    }
+  }
+  closePinCard();
+}
+
+// ── 目的地チップ（予約から自動生成） ──
+function renderMapDestChips() {
+  var chips = el('map-dest-chips');
+  if (!chips) return;
+  chips.innerHTML = '';
+  var flights = reservations.filter(function(r){ return r.type==='flight' || r.addr; }).slice(0,5);
+  flights.forEach(function(res) {
+    var ti = getTypeInfo(res.type);
+    var chip = document.createElement('div');
+    chip.className = 'map-dest-chip';
+    chip.innerHTML = '<span style="font-size:14px;">'+(res.emoji||ti.emoji)+'</span>'
+      + '<span style="white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis;">'
+      + escHtml(res.name) + '</span>';
+    chip.addEventListener('click', function(){ openMapWithRes(res); });
+    chips.appendChild(chip);
+  });
+}
+
+// ── マップ設定 ──
+function openMapSettings() {
+  var modal = el('mapkit-settings-modal');
+  var inp   = el('mapkit-settings-token');
+  if (modal) modal.style.display = 'flex';
+  if (inp) inp.value = mkJwtToken || '';
+}
+
+function closeMapSettings() {
+  var modal = el('mapkit-settings-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function saveMapSettings() {
+  var inp   = el('mapkit-settings-token');
+  var token = inp ? inp.value.trim() : '';
+  if (token && token !== mkJwtToken) {
+    saveMapKitToken(token);
+    initMapKit(token);
+  }
+  closeMapSettings();
+  showToast('設定を保存しました');
+}
+
+function setMapStyle(style) {
+  mkMapStyle = style;
+  ['std','hyb','sat'].forEach(function(s) {
+    var btn = el('map-style-'+s);
+    if (btn) { btn.style.borderColor='var(--bdr)'; btn.style.background='transparent'; btn.style.color='var(--t2)'; }
+  });
+  var activeMap = { standard:'std', hybrid:'hyb', satellite:'sat' };
+  var activeBtn = el('map-style-' + (activeMap[style]||'std'));
+  if (activeBtn) { activeBtn.style.borderColor='var(--acc)'; activeBtn.style.background='rgba(91,142,255,0.15)'; activeBtn.style.color='var(--acc)'; }
+  if (mkMap && mkInitialized) {
+    mkMap.mapType = getMapType(style);
+  }
+}
+
+// ── マップページレンダリング ──
+function renderMapPage() {
+  renderMapDestChips();
+  // トークンは常に存在（ビルド済みJWT）
+  el('mapkit-fallback') && (el('mapkit-fallback').style.display = 'none');
+  el('mapkit-wrap') && (el('mapkit-wrap').style.display = 'flex');
+  var token = getMapKitToken();
+  if (!mkInitialized) {
+    initMapKit(token);
+  } else if (mkMap) {
+    plotReservationPins();
+  }
+}
+
+// ── ページ遷移でマップクロックを停止 ──
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden && mkMap) {
+    try { mkMap.destroy(); mkMap = null; mkInitialized = false; } catch(e) {}
+  }
+});
+
+
 
 // ══════════════════════════════════════════════
 // INIT
