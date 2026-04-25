@@ -12,20 +12,24 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 
 <!-- MapKit JS (Apple Maps) -->
+<script>
+// MapKit JS コールバック（スクリプトより先に定義する必要あり）
+function initMapKitCallback() {
+  window._mapKitReady = true;
+  console.log('[MapKit] loaded and ready');
+  if (window._mapKitPendingInit) {
+    window._mapKitPendingInit();
+    window._mapKitPendingInit = null;
+  }
+}
+</script>
 <script
   src="https://cdn.apple-mapkit.com/mk/5.x.x/mapkit.js"
   crossorigin
   async
   data-callback="initMapKitCallback"
-  data-initial-token="eyJhbGciOiJFUzI1NiIsImtpZCI6Ik01UTc5UDZUNzMiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJRVzNYUzIzQzhDIiwiaWF0IjoxNzc2Nzg2OTM3LCJleHAiOjE3OTIzMzg5MzcsIm9yaWdpbiI6Imh0dHBzOi8vc2NyZWV0cmlwLnZlcmNlbC5hcHAifQ.61CR3qqiBX7_eBXQgFcV3kYiRcrAQr7LalqfiSGucw7N8HU_YGXjJNy5CSJOWgmoCfPpvZ6vQ40eix2-yMo5Mg"
+  data-initial-token="eyJraWQiOiI5VDdVQzJKUUxBIiwidHlwIjoiSldUIiwiYWxnIjoiRVMyNTYifQ.eyJpc3MiOiJRVzNYUzIzQzhDIiwiaWF0IjoxNzc3MDk1OTI0LCJvcmlnaW4iOiIqLnNjcmVlLXRyaXAudmVyY2VsLmFwcCIsInNjb3BlIjoibWFwa2l0X2pzIn0.EgFOKD5KS-vAThPvv66BpruBNp8TmmAmMmQG5QFM8rQBKZ9jB3RiJfBFMRPtTvOMC7tjmTjeYp4zv5RARCYtvw"
 ></script>
-<script>
-// MapKit JS がロード完了したら呼ばれるコールバック
-function initMapKitCallback() {
-  window._mapKitReady = true;
-  if (window._mapKitPendingInit) window._mapKitPendingInit();
-}
-</script>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -395,6 +399,14 @@ a{color:inherit;text-decoration:none;}
 #mapkit-container{
   flex:1;position:relative;overflow:hidden;
   /* MapKit JS がここにcanvasを描画する */
+  min-height:200px; /* タイル描画に必要な最小サイズ保証 */
+  width:100%;
+}
+/* MapKit JS が生成する canvas を確実にコンテナに収める */
+#mapkit-container canvas,
+#mapkit-container .mk-map-view {
+  width:100% !important;
+  height:100% !important;
 }
 /* MapKit JS のデフォルトUIをダークテーマに合わせる */
 .mk-map-view { background:#0e1520 !important; }
@@ -1326,22 +1338,30 @@ a{color:inherit;text-decoration:none;}
         <button onclick="openMapSettings()" style="margin-left:auto;font-size:14px;color:var(--t3);padding:4px 8px;">⚙️</button>
       </div>
 
-      <!-- トークン未設定時フォールバック -->
+      <!-- トークン未設定 / Origin不一致 フォールバック -->
       <div id="mapkit-fallback" class="map-fallback" style="display:none;">
         <div style="font-size:40px;">🗺️</div>
-        <div style="font-size:16px;font-weight:600;">MapKit JWTトークンを設定</div>
-        <div style="font-size:12px;color:var(--t2);line-height:1.6;">
-          Apple Developer Consoleで発行したJWTトークンを入力してください。
-          <a href="https://maps.developer.apple.com/token-maker" target="_blank" rel="noopener" style="color:var(--acc);">Token Maker →</a>
+        <div style="font-size:16px;font-weight:600;">MapKit JS 設定</div>
+
+        <!-- Origin診断 -->
+        <div style="width:100%;background:var(--bg3);border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:4px;">現在のURL（origin）</div>
+          <div id="current-origin-disp" style="font-size:11px;font-family:var(--mono);color:var(--ylw);word-break:break-all;"></div>
+          <div style="font-size:10px;color:var(--t3);margin-top:6px;margin-bottom:2px;">JWTに設定されたorigin</div>
+          <div style="font-size:11px;font-family:var(--mono);color:var(--t2);">https://scree-trip.vercel.app</div>
+          <div id="origin-match-result" style="margin-top:6px;font-size:11px;font-weight:600;"></div>
         </div>
-        <input class="map-token-input" id="mapkit-token-input" placeholder="eyJhbGciOiJFUzI1NiIs..." type="password"/>
+
+        <div style="font-size:12px;color:var(--t2);line-height:1.6;text-align:center;margin-bottom:12px;">
+          originが一致しない場合は<br>
+          <a href="https://maps.developer.apple.com/token-maker" target="_blank" rel="noopener" style="color:var(--acc);">Token Maker</a>
+          で現在のURLを指定して再生成してください
+        </div>
+
+        <input class="map-token-input" id="mapkit-token-input" placeholder="新しいJWTトークンを貼り付け..." type="password" style="width:100%;"/>
         <button onclick="initMapKitWithToken()" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;font-size:14px;font-weight:600;color:#fff;cursor:pointer;font-family:var(--font);">
-          Appleマップを初期化
+          トークンを適用して再試行
         </button>
-        <div style="font-size:10px;color:var(--t3);margin-top:8px;line-height:1.6;text-align:center;">
-          ※ トークンはこのデバイスにのみ保存されます<br>
-          Token Makerで発行 → Vercelのenv変数に設定が本番推奨
-        </div>
       </div>
 
       <!-- MapKit JS レンダリング領域 -->
@@ -3406,7 +3426,7 @@ function getMapKitToken() {
   // 2. Vercel環境変数（ビルド時に埋め込み）
   if (typeof MAPKIT_JWT_TOKEN !== 'undefined' && MAPKIT_JWT_TOKEN) return MAPKIT_JWT_TOKEN;
   // 3. ビルド済みトークン（有効期限: 2026-10-17）
-  return "eyJhbGciOiJFUzI1NiIsImtpZCI6Ik01UTc5UDZUNzMiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJRVzNYUzIzQzhDIiwiaWF0IjoxNzc2Nzg2OTM3LCJleHAiOjE3OTIzMzg5MzcsIm9yaWdpbiI6Imh0dHBzOi8vc2NyZWV0cmlwLnZlcmNlbC5hcHAifQ.61CR3qqiBX7_eBXQgFcV3kYiRcrAQr7LalqfiSGucw7N8HU_YGXjJNy5CSJOWgmoCfPpvZ6vQ40eix2-yMo5Mg";
+  return "eyJraWQiOiI5VDdVQzJKUUxBIiwidHlwIjoiSldUIiwiYWxnIjoiRVMyNTYifQ.eyJpc3MiOiJRVzNYUzIzQzhDIiwiaWF0IjoxNzc3MDk1OTI0LCJvcmlnaW4iOiIqLnNjcmVlLXRyaXAudmVyY2VsLmFwcCIsInNjb3BlIjoibWFwa2l0X2pzIn0.EgFOKD5KS-vAThPvv66BpruBNp8TmmAmMmQG5QFM8rQBKZ9jB3RiJfBFMRPtTvOMC7tjmTjeYp4zv5RARCYtvw";
 }
 
 function saveMapKitToken(token) {
@@ -3417,37 +3437,59 @@ function saveMapKitToken(token) {
 // ── MapKit JS 初期化 ──
 function initMapKit(token) {
   if (!token) { showMapFallback(); return; }
-  // MapKit JS のロード完了を待つ
-  if (typeof mapkit === 'undefined' || !window._mapKitReady) {
+
+  // MapKit JS スクリプトがまだロードされていない場合は待機
+  if (typeof mapkit === 'undefined') {
+    console.log('[MapKit] waiting for script load...');
     window._mapKitPendingInit = function() { initMapKit(token); };
-    setTimeout(function() {
-      if (typeof mapkit !== 'undefined') initMapKit(token);
-    }, 500);
+    // 最大5秒待ってタイムアウト
+    var waited = 0;
+    var waitTimer = setInterval(function() {
+      waited += 200;
+      if (typeof mapkit !== 'undefined') {
+        clearInterval(waitTimer);
+        initMapKit(token);
+      } else if (waited >= 5000) {
+        clearInterval(waitTimer);
+        console.error('[MapKit] script load timeout');
+        showMapFallback();
+      }
+    }, 200);
     return;
   }
+
+  // 既に初期化済みかチェック
   try {
-    // data-initial-token で自動初期化済みの場合はskip
+    // data-initial-token による自動初期化を確認
     if (mapkit.loadedLibraries && mapkit.loadedLibraries.length > 0) {
+      console.log('[MapKit] already initialized via data-initial-token');
       mkInitialized = true;
       mkJwtToken = token;
       buildMapInstance();
       return;
     }
+  } catch(e) {}
+
+  // 手動初期化
+  try {
     mapkit.init({
       authorizationCallback: function(done) { done(token); },
-      language: 'ja'
+      language: 'ja',
     });
     mkInitialized = true;
     mkJwtToken = token;
+    console.log('[MapKit] initialized manually');
     buildMapInstance();
   } catch(e) {
-    console.warn('MapKit init error:', e.message);
-    // 初期化済みエラーは無視してインスタンス生成
-    if (e.message && e.message.includes('already')) {
+    var msg = e.message || '';
+    console.warn('[MapKit] init error:', msg);
+    if (msg.includes('already initialized') || msg.includes('already been')) {
+      // 二重初期化エラー → そのままインスタンス生成
       mkInitialized = true;
       mkJwtToken = token;
       buildMapInstance();
     } else {
+      console.error('[MapKit] fatal init error:', msg);
       showMapFallback();
     }
   }
@@ -3465,7 +3507,20 @@ function initMapKitWithToken() {
 
 function showMapFallback() {
   var fb = el('mapkit-fallback'), ww = el('mapkit-wrap');
-  if (fb) fb.style.display = 'flex';
+  if (fb) {
+    fb.style.display = 'flex';
+    // Origin診断表示
+    var currentOrigin = location.origin;
+    var jwtOrigin = 'https://scree-trip.vercel.app';
+    var originEl = el('current-origin-disp');
+    var matchEl  = el('origin-match-result');
+    if (originEl) originEl.textContent = currentOrigin;
+    if (matchEl) {
+      var match = currentOrigin === jwtOrigin;
+      matchEl.textContent = match ? '✅ origin一致 — 別の原因です' : '❌ origin不一致 — トークン再生成が必要';
+      matchEl.style.color = match ? 'var(--grn)' : 'var(--red)';
+    }
+  }
   if (ww) ww.style.display = 'none';
 }
 
@@ -3477,18 +3532,63 @@ function buildMapInstance() {
   // 既存マップを破棄
   if (mkMap) { try { mkMap.destroy(); } catch(e){} mkMap = null; }
 
-  mkMap = new mapkit.Map(container, {
-    colorScheme: mapkit.Map.ColorSchemes.Dark,
-    mapType: getMapType(mkMapStyle),
-    showsUserLocation: true,
-    showsUserLocationControl: true,
-    showsZoomControl: true,
-    showsCompass: mapkit.FeatureVisibility.Adaptive,
-    padding: new mapkit.Padding({ top: 110, right: 12, bottom: 80, left: 12 }),
-  });
+  // コンテナが画面に表示されてサイズを持つまで待つ
+  // （非表示タブで生成すると 0×0 になりタイルが描画されない）
+  if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+    console.warn('[MapKit] container has no size, retrying in 200ms');
+    setTimeout(buildMapInstance, 200);
+    return;
+  }
 
-  mkSearchObj   = new mapkit.Search({ language: 'ja', includePointsOfInterest: true });
-  mkGeocoderObj = new mapkit.Geocoder({ language: 'ja' });
+  try {
+    // mapkit.Map の最小限オプション（ColorSchemes.Dark は互換性問題があるため除外）
+    var mapOptions = {
+      mapType: mapkit.Map.MapTypes ? mapkit.Map.MapTypes.Standard : 'standard',
+      showsUserLocation: true,
+      showsUserLocationControl: true,
+      showsZoomControl: true,
+    };
+
+    // padding は存在確認してから追加
+    if (mapkit.Padding) {
+      mapOptions.padding = new mapkit.Padding({ top: 110, right: 12, bottom: 80, left: 12 });
+    }
+
+    mkMap = new mapkit.Map(container, mapOptions);
+
+    // ダークスタイルを CSS で強制（JS APIではなく）
+    container.style.filter = 'invert(0.92) hue-rotate(180deg) brightness(0.95) saturate(0.9)';
+
+  } catch(err) {
+    console.error('[MapKit] Map creation failed:', err.message);
+    // origin 不一致など認証エラーの場合は詳細メッセージを表示
+    var errDiv = document.createElement('div');
+    errDiv.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:var(--bg2);';
+    var msg = err.message || String(err);
+    var isOrigin = msg.toLowerCase().includes('origin') || msg.includes('401') || msg.includes('403');
+    errDiv.innerHTML = '<div style="font-size:28px;">' + (isOrigin ? '🔑' : '⚠️') + '</div>'
+      + '<div style="font-size:14px;font-weight:600;color:var(--red);">'
+      + (isOrigin ? 'JWTのorigin不一致' : 'マップの初期化に失敗しました') + '</div>'
+      + '<div style="font-size:11px;color:var(--t2);line-height:1.6;">'
+      + (isOrigin
+        ? '現在のURL: <b>' + location.origin + '</b><br>JWTのorigin: <b>*.scree-trip.vercel.app</b><br><br>URLが異なる場合はトークンを再生成してください'
+        : escHtml(msg))
+      + '</div>'
+      + '<div style="display:flex;gap:8px;margin-top:8px;">'
+      + '<a href="https://www.google.com/maps/search/' + encodeURIComponent((reservations[0]||{}).addr||'') + '" target="_blank" style="padding:8px 14px;border-radius:10px;background:rgba(91,142,255,0.15);border:1px solid rgba(91,142,255,0.3);font-size:12px;color:var(--acc);text-decoration:none;">Googleマップで開く</a>'
+      + '<button onclick="openMapSettings()" style="padding:8px 14px;border-radius:10px;border:1px solid var(--bdr2);background:transparent;font-size:12px;color:var(--t2);cursor:pointer;font-family:var(--font);">⚙️ 設定</button>'
+      + '</div>';
+    container.appendChild(errDiv);
+    return;
+  }
+
+  // Search と Geocoder
+  try {
+    mkSearchObj   = new mapkit.Search({ language: 'ja', includePointsOfInterest: true });
+    mkGeocoderObj = new mapkit.Geocoder({ language: 'ja' });
+  } catch(e) {
+    console.warn('[MapKit] Search/Geocoder init error:', e.message);
+  }
 
   // アノテーションタップイベント
   mkMap.addEventListener('select', function(e) {
@@ -3496,8 +3596,17 @@ function buildMapInstance() {
   });
   mkMap.addEventListener('deselect', function() { closePinCard(); });
 
+  // 日本中心に初期表示（ピン配置前のデフォルト）
+  try {
+    mkMap.region = new mapkit.CoordinateRegion(
+      new mapkit.Coordinate(35.6762, 139.6503),
+      new mapkit.CoordinateSpan(8, 8)
+    );
+  } catch(e) {}
+
   // 予約からピンを自動配置
   plotReservationPins();
+  console.log('[MapKit] Map instance created successfully');
 }
 
 // ── マップタイプ変換 ──
@@ -3869,15 +3978,23 @@ function setMapStyle(style) {
 // ── マップページレンダリング ──
 function renderMapPage() {
   renderMapDestChips();
-  // トークンは常に存在（ビルド済みJWT）
   el('mapkit-fallback') && (el('mapkit-fallback').style.display = 'none');
   el('mapkit-wrap') && (el('mapkit-wrap').style.display = 'flex');
+
   var token = getMapKitToken();
-  if (!mkInitialized) {
-    initMapKit(token);
-  } else if (mkMap) {
-    plotReservationPins();
-  }
+  // ページ遷移アニメーション完了後（300ms）にマップ初期化
+  // → その前だとコンテナサイズが 0 になりタイルが描画されない
+  setTimeout(function() {
+    if (!mkInitialized) {
+      initMapKit(token);
+    } else if (!mkMap) {
+      buildMapInstance();
+    } else {
+      // 既存マップのサイズを更新
+      try { mkMap._resizeObserver && mkMap._resizeObserver.disconnect(); } catch(e) {}
+      plotReservationPins();
+    }
+  }, 350);
 }
 
 // ── ページ遷移でマップクロックを停止 ──
